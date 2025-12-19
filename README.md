@@ -4,7 +4,7 @@ This is a beginner-friendly web project created using *HTML, CSS, and JavaScript
 The project is hosted using *GitHub Pages*.
 
 ## 🚀 Live Demo
-🔗 
+🔗  https://jyothsna1506.github.io/E-Commerce/
 
 ## 📌 Features
 - Clean and simple UI
