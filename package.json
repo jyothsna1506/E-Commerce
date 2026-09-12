@@ -1,0 +1,34 @@
+{
+  "name": "shop-express",
+  "version": "2.0.0",
+  "description": "Production-ready full-stack e-commerce application with personalized recommendations, authentication, order tracking, and clean modular architecture.",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
+    "server": "node backend/server.js",
+    "seed": "node backend/scripts/seed.js",
+    "test": "node test_backend.js"
+  },
+  "keywords": [
+    "ecommerce",
+    "shop-express",
+    "nodejs",
+    "express",
+    "mongodb",
+    "mongoose",
+    "recommendation-engine",
+    "jwt",
+    "fullstack"
+  ],
+  "author": "Shop Express Team",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5"
+  }
+}

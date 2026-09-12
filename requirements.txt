@@ -1,0 +1,4 @@
+# Shop Express - Dependency Specification
+# Primary application stack: Node.js (v18+) & Express.js (see package.json)
+# This file is provided for optional Python automation, data analytics, or microservice integrations.
+# Currently no mandatory Python dependencies are required for running the core application.
