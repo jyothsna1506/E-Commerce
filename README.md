@@ -38,6 +38,7 @@ The Express server acts as both the static file host (serving the SPA from `/fro
 - **Product Variant Selection**: Clothing items support real apparel sizes (`XS`, `S`, `M`, `L`, `XL`, `XXL`); footwear supports footwear sizes (`6` to `11`); non-sized goods automatically omit variant pickers.
 - **Instant Search & Filtering**: Real-time multi-attribute search across title, brand, description, tags, and category, paired with multi-criteria sorting (Price Low-to-High, Price High-to-Low, Highest Rated, Newest).
 - **Product Details Quick-View Modal**: View product galleries, brand info, stock status, ratings, reviews count, quantity selectors, and related recommendations.
+- **Interactive Verified Reviews & Rating System**: Authenticated customers who have purchased a product can submit 1–5 star ratings and reviews (`POST /api/products/:id/reviews`). Enforces verified-purchaser access control, prevents duplicate reviews, and dynamically recalculates catalog average ratings and review counts.
 - **Enforced Authentication & Access Control**:
   - **Guests**: Freely browse catalog, search, filter, sort, and inspect product details.
   - **Protected Actions**: Adding to cart, viewing cart, toggling wishlist, checking out, placing orders, making payments, and accessing order history strictly require authentication.
@@ -208,7 +209,7 @@ npm run seed
 ```
 
 ### 6. Run Automated Tests
-Execute the comprehensive integration test suite (31 tests covering health, auth, catalog, cart, wishlist, orders, and security permissions):
+Execute the comprehensive integration test suite (37 tests covering health, auth, catalog, reviews, cart, wishlist, orders, and security permissions):
 ```bash
 npm test
 ```

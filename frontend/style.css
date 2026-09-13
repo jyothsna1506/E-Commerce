@@ -382,3 +382,34 @@
       to { transform: translateX(0); opacity: 1; }
     }
 
+    /* Reviews and Star Rating Picker Styles */
+    .star-rating-picker {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .star-choice {
+      font-size: 26px;
+      cursor: pointer;
+      color: #cbd5e1;
+      transition: color 0.15s ease, transform 0.15s ease;
+      user-select: none;
+      line-height: 1;
+    }
+    .star-choice:hover {
+      transform: scale(1.2);
+    }
+    .star-choice.selected, .star-choice.hovered {
+      color: #f39c12 !important;
+    }
+    .review-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px 16px;
+      transition: all 0.2s ease;
+    }
+    .review-card:hover {
+      border-color: var(--accent-color);
+    }
+

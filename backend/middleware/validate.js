@@ -113,9 +113,32 @@ const validateProductId = (req, res, next) => {
   next();
 };
 
+const validateReview = (req, res, next) => {
+  const { rating, comment, reviewText } = req.body;
+  const numRating = Number(rating);
+
+  if (rating === undefined || rating === null || isNaN(numRating) || numRating < 1 || numRating > 5) {
+    return res.status(400).json({
+      success: false,
+      error: "Rating must be a valid number between 1 and 5.",
+    });
+  }
+
+  const text = (comment || reviewText || "").trim();
+  if (!text || text.length < 3) {
+    return res.status(400).json({
+      success: false,
+      error: "Review text must be at least 3 characters long.",
+    });
+  }
+
+  next();
+};
+
 module.exports = {
   validateRegister,
   validateLogin,
   validateOrder,
   validateProductId,
+  validateReview,
 };

@@ -1543,6 +1543,7 @@ function openProductModal(productId) {
   document.getElementById('modal-qty-value').textContent = '1';
   updateModalWishlistState();
   renderModalRecommendations(product);
+  loadAndRenderProductReviews(product.id);
 
   document.getElementById('product-detail-modal').style.display = 'flex';
 }
@@ -1644,6 +1645,278 @@ function renderModalRecommendations(currentProduct) {
       </div>
     </div>
   `).join('');
+}
+
+// Product Customer Reviews & Rating Logic
+let selectedReviewRating = 5;
+
+function setReviewRating(val) {
+  selectedReviewRating = Math.max(1, Math.min(5, Number(val) || 5));
+  updateStarPickerUI(selectedReviewRating, false);
+}
+
+function hoverReviewRating(val) {
+  const rating = Math.max(1, Math.min(5, Number(val) || 5));
+  updateStarPickerUI(rating, true);
+}
+
+function resetHoverReviewRating() {
+  updateStarPickerUI(selectedReviewRating, false);
+}
+
+function updateStarPickerUI(rating, isHover = false) {
+  const labels = {
+    1: '1 Star - Poor',
+    2: '2 Stars - Fair',
+    3: '3 Stars - Average',
+    4: '4 Stars - Good',
+    5: '5 Stars - Excellent!',
+  };
+  const choices = document.querySelectorAll('#modal-star-picker .star-choice');
+  choices.forEach(ch => {
+    const v = Number(ch.dataset.val);
+    if (v <= rating) {
+      ch.style.color = '#f39c12';
+      ch.classList.add(isHover ? 'hovered' : 'selected');
+    } else {
+      ch.style.color = '#cbd5e1';
+      ch.classList.remove('hovered', 'selected');
+    }
+  });
+  const labelEl = document.getElementById('star-rating-label');
+  if (labelEl) {
+    labelEl.textContent = labels[rating] || `${rating} Stars`;
+  }
+}
+
+async function loadAndRenderProductReviews(productId) {
+  const container = document.getElementById('modal-review-action-container');
+  const listEl = document.getElementById('modal-reviews-list');
+  const starsEl = document.getElementById('modal-reviews-stars');
+  const avgRatingEl = document.getElementById('modal-reviews-avg-rating');
+  const countEl = document.getElementById('modal-reviews-total-count');
+
+  if (!container || !listEl) return;
+
+  container.innerHTML = `<div style="padding: 12px; font-size: 13px; color: var(--text-secondary); text-align: center;">Checking review eligibility...</div>`;
+  listEl.innerHTML = `<div style="padding: 12px; font-size: 13px; color: var(--text-secondary); text-align: center;">Loading verified customer reviews...</div>`;
+
+  selectedReviewRating = 5;
+
+  try {
+    const data = await apiRequest(`/products/${productId}/reviews`);
+    if (data && data.success) {
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        product.rating = data.rating;
+        product.reviewCount = data.reviewCount;
+        product.reviews = data.reviewCount;
+      }
+
+      const currentRatingNum = Number(data.rating || 4.5);
+      const currentReviewsNum = Number(data.reviewCount || 0);
+
+      // Update review section headers
+      if (starsEl) starsEl.textContent = renderStars(currentRatingNum);
+      if (avgRatingEl) avgRatingEl.textContent = currentRatingNum.toFixed(1);
+      if (countEl) countEl.textContent = `(${currentReviewsNum} verified customer reviews)`;
+
+      // Keep top modal summary in sync
+      const topStars = document.getElementById('modal-product-stars');
+      const topRating = document.getElementById('modal-product-rating');
+      const topReviews = document.getElementById('modal-product-reviews');
+      if (topStars) topStars.textContent = renderStars(currentRatingNum);
+      if (topRating) topRating.textContent = currentRatingNum.toFixed(1);
+      if (topReviews) topReviews.textContent = `(${currentReviewsNum} customer reviews)`;
+
+      // 1. Render Eligibility / Submission Action Container
+      if (!authToken) {
+        // Guest user prompt
+        container.innerHTML = `
+          <div style="background: rgba(35, 47, 62, 0.05); border: 1px dashed var(--border-color); border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div style="font-weight: 600; font-size: 14px; color: var(--text-primary); margin-bottom: 2px;">Have you purchased this product?</div>
+              <div style="font-size: 12px; color: var(--text-secondary);">Sign in to your Shop Express account to leave a verified review &amp; rating.</div>
+            </div>
+            <button type="button" onclick="promptAuthForAction('write_review', { productId: ${productId} }, 'Please sign in to write a verified customer review.')" style="background: var(--btn-yellow); color: #232f3e; border: 1px solid #e09924; padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;">
+              Sign In to Review
+            </button>
+          </div>
+        `;
+      } else if (data.hasReviewed && data.userReview) {
+        // Authenticated user has already reviewed this product
+        const rev = data.userReview;
+        const revDate = rev.createdAt ? new Date(rev.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently';
+        container.innerHTML = `
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 16px 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px; color: #10b981;">✓</span>
+                <span style="font-weight: 700; font-size: 14px; color: var(--text-primary);">You reviewed this product on ${escapeHtml(revDate)}</span>
+                <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px;">Submitted</span>
+              </div>
+              <span style="color: #f39c12; font-size: 15px;">${renderStars(rev.rating)}</span>
+            </div>
+            <p style="margin: 0 0 6px 0; font-size: 13.5px; color: var(--text-primary); font-style: italic; line-height: 1.5;">"${escapeHtml(rev.comment)}"</p>
+            <div style="font-size: 11.5px; color: var(--text-secondary);">Your verified feedback helps shoppers make confident decisions.</div>
+          </div>
+        `;
+      } else if (!data.hasPurchased) {
+        // Authenticated user has not ordered this product
+        container.innerHTML = `
+          <div style="background: rgba(100, 116, 139, 0.08); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; gap: 14px;">
+            <span style="font-size: 22px;">🔒</span>
+            <div>
+              <div style="font-weight: 600; font-size: 14px; color: var(--text-primary); margin-bottom: 2px;">Verified Purchase Required</div>
+              <div style="font-size: 12.5px; color: var(--text-secondary);">Only customers who have purchased this product can submit a review. Place an order to unlock your rating!</div>
+            </div>
+          </div>
+        `;
+      } else {
+        // Eligible to write review
+        container.innerHTML = `
+          <div style="background: var(--bg-primary); border: 2px solid var(--accent-color); border-radius: 12px; padding: 18px 20px; box-shadow: 0 4px 12px rgba(255, 153, 0, 0.08);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <div style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Write a Verified Review ✍️</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">You purchased this item! Share your feedback with other shoppers.</div>
+              </div>
+              <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px;">✓ Verified Purchaser</span>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Overall Rating (1–5 Stars):</label>
+              <div id="modal-star-picker" class="star-rating-picker" style="display: flex; align-items: center; gap: 6px; font-size: 26px; cursor: pointer;">
+                <span class="star-choice selected" data-val="1" onclick="setReviewRating(1)" onmouseover="hoverReviewRating(1)" onmouseout="resetHoverReviewRating()" style="color: #f39c12;">★</span>
+                <span class="star-choice selected" data-val="2" onclick="setReviewRating(2)" onmouseover="hoverReviewRating(2)" onmouseout="resetHoverReviewRating()" style="color: #f39c12;">★</span>
+                <span class="star-choice selected" data-val="3" onclick="setReviewRating(3)" onmouseover="hoverReviewRating(3)" onmouseout="resetHoverReviewRating()" style="color: #f39c12;">★</span>
+                <span class="star-choice selected" data-val="4" onclick="setReviewRating(4)" onmouseover="hoverReviewRating(4)" onmouseout="resetHoverReviewRating()" style="color: #f39c12;">★</span>
+                <span class="star-choice selected" data-val="5" onclick="setReviewRating(5)" onmouseover="hoverReviewRating(5)" onmouseout="resetHoverReviewRating()" style="color: #f39c12;">★</span>
+                <span id="star-rating-label" style="font-size: 13px; font-weight: 600; color: var(--accent-color); margin-left: 8px;">5 Stars - Excellent!</span>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 14px;">
+              <label for="modal-review-comment" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Your Review:</label>
+              <textarea id="modal-review-comment" rows="3" placeholder="How was the quality, fit, delivery, and overall experience? (minimum 3 characters)" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 13.5px; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+              <button type="button" id="modal-submit-review-btn" onclick="submitProductReview(${productId})" style="background: var(--accent-color); color: white; border: none; padding: 10px 22px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: opacity 0.2s;">
+                <span>Submit Review</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      // 2. Render Existing Reviews List
+      const reviews = Array.isArray(data.reviewsList) ? data.reviewsList : [];
+      if (reviews.length === 0) {
+        listEl.innerHTML = `<div style="padding: 14px; font-size: 13px; color: var(--text-secondary); text-align: center; border: 1px dashed var(--border-color); border-radius: 8px;">No customer reviews yet. Be the first verified buyer to share feedback!</div>`;
+      } else {
+        listEl.innerHTML = reviews.map(r => {
+          const name = r.userName || 'Verified Customer';
+          const initial = name.charAt(0).toUpperCase();
+          const isOwn = Boolean(currentUser && ((r.user && (r.user === currentUser.id || r.user === currentUser._id)) || (r.userEmail && r.userEmail === currentUser.email)));
+          const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent';
+
+          return `
+            <div class="review-card" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--accent-color); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;">
+                    ${escapeHtml(initial)}
+                  </div>
+                  <span style="font-weight: 600; font-size: 14px; color: var(--text-primary);">${escapeHtml(name)}</span>
+                  ${r.verifiedPurchase !== false ? `<span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px;">✓ Verified Purchase</span>` : ''}
+                  ${isOwn ? `<span style="background: rgba(255, 153, 0, 0.15); color: var(--accent-color); border: 1px solid rgba(255, 153, 0, 0.3); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px;">Your Review</span>` : ''}
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="color: #f39c12; font-size: 14px;">${renderStars(r.rating || 5)}</span>
+                  <span style="font-size: 12px; color: var(--text-secondary);">${escapeHtml(dateStr)}</span>
+                </div>
+              </div>
+              <p style="margin: 0; font-size: 13.5px; color: var(--text-secondary); line-height: 1.5;">${escapeHtml(r.comment)}</p>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+  } catch (err) {
+    if (container) container.innerHTML = `<div style="padding: 10px; font-size: 13px; color: var(--text-secondary);">Unable to check review eligibility right now.</div>`;
+    if (listEl) listEl.innerHTML = `<div style="padding: 10px; font-size: 13px; color: var(--text-secondary);">Customer reviews could not be loaded.</div>`;
+  }
+}
+
+async function submitProductReview(productId) {
+  if (!authToken) {
+    promptAuthForAction('write_review', { productId }, 'Please sign in to submit a review.');
+    return;
+  }
+
+  const commentEl = document.getElementById('modal-review-comment');
+  const btn = document.getElementById('modal-submit-review-btn');
+  const comment = commentEl ? commentEl.value.trim() : '';
+
+  if (!selectedReviewRating || selectedReviewRating < 1 || selectedReviewRating > 5) {
+    showToast('Please select a star rating between 1 and 5.', false);
+    return;
+  }
+
+  if (!comment || comment.length < 3) {
+    showToast('Please enter a review of at least 3 characters.', false);
+    if (commentEl) commentEl.focus();
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+    btn.innerHTML = '<span>Submitting...</span>';
+  }
+
+  try {
+    const res = await apiRequest(`/products/${productId}/reviews`, 'POST', {
+      rating: selectedReviewRating,
+      comment
+    });
+
+    if (res && res.success) {
+      showToast('Thank you! Your verified review has been published.', true);
+
+      // Update product rating and counts in memory
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        product.rating = res.rating;
+        product.reviewCount = res.reviewCount;
+        product.reviews = res.reviewCount;
+      }
+
+      // Re-render storefront products so cards reflect new rating/review count
+      renderProducts();
+      if (typeof fetchAndRenderRecommendations === 'function') {
+        fetchAndRenderRecommendations();
+      }
+
+      // Refresh reviews section inside modal immediately
+      await loadAndRenderProductReviews(productId);
+    } else {
+      showToast((res && res.error) || 'Failed to submit review. Please try again.', false);
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.innerHTML = '<span>Submit Review</span>';
+      }
+    }
+  } catch (err) {
+    showToast(err.message || 'An error occurred while submitting your review.', false);
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.innerHTML = '<span>Submit Review</span>';
+    }
+  }
 }
 
 // Recently Viewed
@@ -3302,6 +3575,8 @@ function executePendingAction() {
     buyAgain(action.data.orderId);
   } else if (action.actionType === 'cancel_order' && action.data && action.data.orderId) {
     cancelOrder(action.data.orderId);
+  } else if (action.actionType === 'write_review' && action.data && action.data.productId) {
+    openProductModal(action.data.productId);
   }
 }
 
@@ -4084,6 +4359,14 @@ window.handleSendPhoneOtp = handleSendPhoneOtp;
 window.handleVerifyPhoneOtp = handleVerifyPhoneOtp;
 window.logoutUser = logoutUser;
 window.checkInitialAuthState = checkInitialAuthState;
+window.openProductModal = openProductModal;
+window.closeProductModal = closeProductModal;
+window.selectModalVariant = selectModalVariant;
+window.setReviewRating = setReviewRating;
+window.hoverReviewRating = hoverReviewRating;
+window.resetHoverReviewRating = resetHoverReviewRating;
+window.submitProductReview = submitProductReview;
+window.loadAndRenderProductReviews = loadAndRenderProductReviews;
 
 // Initialization
 loadAllState();

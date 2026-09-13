@@ -444,6 +444,117 @@ const server = app.listen(5099, async () => {
       assert(res.body.recommendations.length > 0);
     });
 
+    // 31. Unauthenticated Product Review Attempt strictly rejected with 401
+    await test("POST /api/products/:id/reviews rejects unauthenticated requests with 401", async () => {
+      const res = await request("POST", "/api/products/1/reviews", {
+        rating: 5,
+        comment: "Great quality!",
+      });
+      assert.strictEqual(res.status, 401);
+      assert.strictEqual(res.body.success, false);
+    });
+
+    // 32. Product Review with Invalid Rating rejected with 400
+    await test("POST /api/products/:id/reviews rejects invalid rating values with 400", async () => {
+      const resHigh = await request(
+        "POST",
+        "/api/products/1/reviews",
+        { rating: 6, comment: "Rating too high" },
+        authToken
+      );
+      assert.strictEqual(resHigh.status, 400);
+      assert.strictEqual(resHigh.body.success, false);
+
+      const resLow = await request(
+        "POST",
+        "/api/products/1/reviews",
+        { rating: 0, comment: "Rating too low" },
+        authToken
+      );
+      assert.strictEqual(resLow.status, 400);
+      assert.strictEqual(resLow.body.success, false);
+
+      const resShort = await request(
+        "POST",
+        "/api/products/1/reviews",
+        { rating: 5, comment: " " },
+        authToken
+      );
+      assert.strictEqual(resShort.status, 400);
+      assert.strictEqual(resShort.body.success, false);
+    });
+
+    // 33. Non-purchaser attempting to review is rejected with 403
+    await test("POST /api/products/:id/reviews rejects non-purchasers with 403", async () => {
+      // Test Runner has only purchased product 1, not product 2
+      const res = await request(
+        "POST",
+        "/api/products/2/reviews",
+        { rating: 5, comment: "I never ordered or received this item." },
+        authToken
+      );
+      assert.strictEqual(res.status, 403);
+      assert.strictEqual(res.body.success, false);
+      assert(res.body.error.includes("verified purchasers"));
+    });
+
+    // 34. Successful verified-purchase review creation
+    await test("POST /api/products/:id/reviews allows verified purchaser to submit review and updates rating/count", async () => {
+      const initialProd = await request("GET", "/api/products/1");
+      const initialRating = initialProd.body.product.rating;
+      const initialCount = initialProd.body.product.reviewCount || initialProd.body.product.reviews;
+
+      const res = await request(
+        "POST",
+        "/api/products/1/reviews",
+        { rating: 5, comment: "Outstanding breathable cotton quality and superb stitching!" },
+        authToken
+      );
+      assert.strictEqual(res.status, 201);
+      assert.strictEqual(res.body.success, true);
+      assert.strictEqual(res.body.review.rating, 5);
+      assert.strictEqual(res.body.review.verifiedPurchase, true);
+      assert.strictEqual(res.body.reviewCount, initialCount + 1);
+
+      // Verify product retrieval reflects new review and updated rating
+      const updatedProd = await request("GET", "/api/products/1");
+      assert.strictEqual(updatedProd.body.product.reviewCount, initialCount + 1);
+      assert(Array.isArray(updatedProd.body.product.reviewsList));
+      assert(updatedProd.body.product.reviewsList.some((r) => r.comment.includes("Outstanding breathable")));
+    });
+
+    // 35. Duplicate review prevention
+    await test("POST /api/products/:id/reviews prevents duplicate review submissions by same user with 400", async () => {
+      const res = await request(
+        "POST",
+        "/api/products/1/reviews",
+        { rating: 4, comment: "Submitting a second review for the same item" },
+        authToken
+      );
+      assert.strictEqual(res.status, 400);
+      assert.strictEqual(res.body.success, false);
+      assert(res.body.error.includes("already submitted"));
+    });
+
+    // 36. GET /api/products/:id/reviews returns reviews list and verified eligibility status
+    await test("GET /api/products/:id/reviews returns reviews list and verified eligibility status", async () => {
+      // With authToken (has purchased & has reviewed)
+      const authRes = await request("GET", "/api/products/1/reviews", null, authToken);
+      assert.strictEqual(authRes.status, 200);
+      assert.strictEqual(authRes.body.success, true);
+      assert.strictEqual(authRes.body.hasPurchased, true);
+      assert.strictEqual(authRes.body.hasReviewed, true);
+      assert.strictEqual(authRes.body.canReview, false);
+      assert(authRes.body.userReview !== null);
+
+      // As guest (no token)
+      const guestRes = await request("GET", "/api/products/1/reviews");
+      assert.strictEqual(guestRes.status, 200);
+      assert.strictEqual(guestRes.body.canReview, false);
+      assert.strictEqual(guestRes.body.hasPurchased, false);
+      assert(Array.isArray(guestRes.body.reviewsList));
+    });
+
     console.log("==================================================");
     console.log(`TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
     console.log("==================================================\n");
