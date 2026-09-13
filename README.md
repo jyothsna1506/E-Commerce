@@ -38,6 +38,7 @@ The Express server acts as both the static file host (serving the SPA from `/fro
 - **Product Variant Selection**: Clothing items support real apparel sizes (`XS`, `S`, `M`, `L`, `XL`, `XXL`); footwear supports footwear sizes (`6` to `11`); non-sized goods automatically omit variant pickers.
 - **Instant Search & Filtering**: Real-time multi-attribute search across title, brand, description, tags, and category, paired with multi-criteria sorting (Price Low-to-High, Price High-to-Low, Highest Rated, Newest).
 - **Product Details Quick-View Modal**: View product galleries, brand info, stock status, ratings, reviews count, quantity selectors, and related recommendations.
+- **Advanced Storefront Filters**: Multi-criteria catalog filtering supporting price range bounds (min & max price), minimum customer star ratings (4.5★+, 4.0★+, 3.5★+, 3.0★+), and stock availability toggle ("In Stock Only"), accompanied by responsive filter chips, individual chip removal, and instant reset controls seamlessly combined with search and category tabs.
 - **Interactive Verified Reviews & Rating System**: Authenticated customers who have purchased a product can submit 1–5 star ratings and reviews (`POST /api/products/:id/reviews`). Enforces verified-purchaser access control, prevents duplicate reviews, and dynamically recalculates catalog average ratings and review counts.
 - **Enforced Authentication & Access Control**:
   - **Guests**: Freely browse catalog, search, filter, sort, and inspect product details.
@@ -98,7 +99,7 @@ E-Commerce-main/
 ├── .env.example           # Template for environment variables
 ├── .gitignore             # Git ignore configuration
 ├── package.json           # Project manifest & npm scripts
-├── test_backend.js        # Automated backend integration test suite (31 tests)
+├── test_backend.js        # Automated backend integration test suite (42 tests)
 └── README.md              # Project documentation
 ```
 
@@ -209,7 +210,7 @@ npm run seed
 ```
 
 ### 6. Run Automated Tests
-Execute the comprehensive integration test suite (37 tests covering health, auth, catalog, reviews, cart, wishlist, orders, and security permissions):
+Execute the comprehensive integration test suite (42 tests covering health, auth, catalog, filters, reviews, cart, wishlist, orders, and security permissions):
 ```bash
 npm test
 ```

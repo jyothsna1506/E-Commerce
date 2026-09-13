@@ -355,6 +355,13 @@
       .header-btn {
         padding: 8px 12px !important;
       }
+      .filter-controls-group {
+        gap: 12px !important;
+      }
+      #storefront-filter-bar > div:first-child {
+        flex-direction: column;
+        align-items: flex-start !important;
+      }
     }
 
     /* Toast Notification Styles */
@@ -411,5 +418,38 @@
     }
     .review-card:hover {
       border-color: var(--accent-color);
+    }
+
+    /* Advanced Filter Bar Styles */
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .filter-chip:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.08);
+    }
+    .filter-chip-remove {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: bold;
+    }
+    .filter-chip:hover .filter-chip-remove {
+      color: #ef4444;
+    }
+    #reset-filters-btn:hover {
+      border-color: #ef4444 !important;
+      color: #ef4444 !important;
     }
 

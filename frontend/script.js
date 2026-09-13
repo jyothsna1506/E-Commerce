@@ -1293,7 +1293,165 @@ function renderStars(rating) {
   return stars;
 }
 
-// Filtering & Sorting
+// Filtering & Sorting State
+let filterMinPrice = null;
+let filterMaxPrice = null;
+let filterMinRating = 0;
+let filterInStockOnly = false;
+let priceDebounceTimer = null;
+let activeChipsCache = [];
+
+function handlePriceFilterChange() {
+  clearTimeout(priceDebounceTimer);
+  priceDebounceTimer = setTimeout(() => {
+    const minEl = document.getElementById('filter-min-price');
+    const maxEl = document.getElementById('filter-max-price');
+    const minVal = minEl && minEl.value.trim() !== '' ? Number(minEl.value) : null;
+    const maxVal = maxEl && maxEl.value.trim() !== '' ? Number(maxEl.value) : null;
+
+    filterMinPrice = (minVal !== null && !isNaN(minVal) && minVal >= 0) ? minVal : null;
+    filterMaxPrice = (maxVal !== null && !isNaN(maxVal) && maxVal >= 0) ? maxVal : null;
+
+    updateFilterChips();
+    renderProducts();
+  }, 200);
+}
+
+function handleRatingFilterChange(val) {
+  filterMinRating = Number(val) || 0;
+  updateFilterChips();
+  renderProducts();
+}
+
+function handleInStockFilterChange(checked) {
+  filterInStockOnly = Boolean(checked);
+  updateFilterChips();
+  renderProducts();
+}
+
+function updateFilterChips() {
+  const container = document.getElementById('active-filter-chips');
+  const resetBtn = document.getElementById('reset-filters-btn');
+  if (!container) return;
+
+  const chips = [];
+
+  if (filterMinPrice !== null && filterMaxPrice !== null) {
+    chips.push({
+      label: `Price: ₹${filterMinPrice} – ₹${filterMaxPrice}`,
+      clear: () => {
+        filterMinPrice = null;
+        filterMaxPrice = null;
+        const minEl = document.getElementById('filter-min-price');
+        const maxEl = document.getElementById('filter-max-price');
+        if (minEl) minEl.value = '';
+        if (maxEl) maxEl.value = '';
+      }
+    });
+  } else if (filterMinPrice !== null) {
+    chips.push({
+      label: `Min: ₹${filterMinPrice}`,
+      clear: () => {
+        filterMinPrice = null;
+        const minEl = document.getElementById('filter-min-price');
+        if (minEl) minEl.value = '';
+      }
+    });
+  } else if (filterMaxPrice !== null) {
+    chips.push({
+      label: `Max: ₹${filterMaxPrice}`,
+      clear: () => {
+        filterMaxPrice = null;
+        const maxEl = document.getElementById('filter-max-price');
+        if (maxEl) maxEl.value = '';
+      }
+    });
+  }
+
+  if (filterMinRating > 0) {
+    chips.push({
+      label: `Rating: ${filterMinRating}★+`,
+      clear: () => {
+        filterMinRating = 0;
+        const rEl = document.getElementById('filter-rating-select');
+        if (rEl) rEl.value = '0';
+      }
+    });
+  }
+
+  if (filterInStockOnly) {
+    chips.push({
+      label: `In Stock Only`,
+      clear: () => {
+        filterInStockOnly = false;
+        const sEl = document.getElementById('filter-instock-checkbox');
+        if (sEl) sEl.checked = false;
+      }
+    });
+  }
+
+  const hasActiveFilters = chips.length > 0;
+  if (resetBtn) {
+    resetBtn.style.display = hasActiveFilters ? 'inline-flex' : 'none';
+  }
+
+  if (!hasActiveFilters) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    activeChipsCache = [];
+    return;
+  }
+
+  container.style.display = 'flex';
+  container.innerHTML = chips.map((c, idx) => `
+    <span class="filter-chip" onclick="removeFilterChip(${idx})" title="Remove this filter">
+      <span>${escapeHtml(c.label)}</span>
+      <span class="filter-chip-remove">✕</span>
+    </span>
+  `).join('');
+
+  activeChipsCache = chips;
+}
+
+function removeFilterChip(idx) {
+  if (activeChipsCache[idx] && typeof activeChipsCache[idx].clear === 'function') {
+    activeChipsCache[idx].clear();
+    updateFilterChips();
+    renderProducts();
+  }
+}
+
+function resetFilters() {
+  filterMinPrice = null;
+  filterMaxPrice = null;
+  filterMinRating = 0;
+  filterInStockOnly = false;
+
+  const minEl = document.getElementById('filter-min-price');
+  const maxEl = document.getElementById('filter-max-price');
+  const rEl = document.getElementById('filter-rating-select');
+  const sEl = document.getElementById('filter-instock-checkbox');
+
+  if (minEl) minEl.value = '';
+  if (maxEl) maxEl.value = '';
+  if (rEl) rEl.value = '0';
+  if (sEl) sEl.checked = false;
+
+  updateFilterChips();
+  renderProducts();
+}
+
+function resetAllFiltersAndSearch() {
+  searchQuery = '';
+  currentCategory = 'all';
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) searchInput.value = '';
+  document.querySelectorAll('.category-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.category === 'all');
+  });
+  resetFilters();
+}
+
 function filterAndSortProducts() {
   let filtered = products.filter(product => {
     const matchesCategory = currentCategory === 'all' || product.category === currentCategory;
@@ -1305,7 +1463,13 @@ function filterAndSortProducts() {
       (product.subcategory && product.subcategory.toLowerCase().includes(q)) ||
       (product.tags && product.tags.some(t => t.toLowerCase().includes(q))) ||
       product.category.toLowerCase().includes(q);
-    return matchesCategory && matchesSearch;
+
+    const matchesMinPrice = filterMinPrice === null || isNaN(filterMinPrice) || product.price >= filterMinPrice;
+    const matchesMaxPrice = filterMaxPrice === null || isNaN(filterMaxPrice) || product.price <= filterMaxPrice;
+    const matchesRating = !filterMinRating || product.rating >= filterMinRating;
+    const matchesStock = !filterInStockOnly || product.stock > 0;
+
+    return matchesCategory && matchesSearch && matchesMinPrice && matchesMaxPrice && matchesRating && matchesStock;
   });
 
   if (currentSort === 'price-low') {
@@ -1335,8 +1499,8 @@ function renderProducts() {
       <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
         <div style="font-size: 54px; margin-bottom: 12px;">🔍</div>
         <h3 style="font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">No products found</h3>
-        <p style="font-size: 15px; color: var(--text-secondary); margin-bottom: 20px;">We couldn't find any products matching "${escapeHtml(searchQuery)}".</p>
-        <button onclick="clearSearch()" style="background: var(--accent-color); color: white; border: none; padding: 10px 24px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;">Clear Search &amp; Filters</button>
+        <p style="font-size: 15px; color: var(--text-secondary); margin-bottom: 20px;">No items match your current filter and search criteria.</p>
+        <button onclick="resetAllFiltersAndSearch()" style="background: var(--accent-color); color: white; border: none; padding: 10px 24px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;">Reset All Filters</button>
       </div>
     `;
     renderRecommendations();
@@ -1386,13 +1550,7 @@ function renderProducts() {
 }
 
 function clearSearch() {
-  searchQuery = '';
-  currentCategory = 'all';
-  document.getElementById('search-input').value = '';
-  document.querySelectorAll('.category-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.category === 'all');
-  });
-  renderProducts();
+  resetAllFiltersAndSearch();
 }
 
 // Wishlist Functions
@@ -4367,6 +4525,13 @@ window.hoverReviewRating = hoverReviewRating;
 window.resetHoverReviewRating = resetHoverReviewRating;
 window.submitProductReview = submitProductReview;
 window.loadAndRenderProductReviews = loadAndRenderProductReviews;
+window.handlePriceFilterChange = handlePriceFilterChange;
+window.handleRatingFilterChange = handleRatingFilterChange;
+window.handleInStockFilterChange = handleInStockFilterChange;
+window.updateFilterChips = updateFilterChips;
+window.removeFilterChip = removeFilterChip;
+window.resetFilters = resetFilters;
+window.resetAllFiltersAndSearch = resetAllFiltersAndSearch;
 
 // Initialization
 loadAllState();

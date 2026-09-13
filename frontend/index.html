@@ -291,6 +291,70 @@
       </div>
      </div>
 
+     <!-- Advanced Storefront Filter Bar -->
+     <div id="storefront-filter-bar" class="storefront-filters-container" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px 18px; margin-bottom: 24px; box-shadow: 0 2px 8px var(--card-shadow);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+       
+       <!-- Filter Controls Group -->
+       <div class="filter-controls-group" style="display: flex; align-items: center; flex-wrap: wrap; gap: 18px;">
+        
+        <!-- Price Range Filter Control -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+         <span style="font-size: 13px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 4px;">
+          <span>💰</span> Price:
+         </span>
+         <div style="display: flex; align-items: center; gap: 6px;">
+          <div style="position: relative; width: 92px;">
+           <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-secondary); pointer-events: none;">₹</span>
+           <input type="number" id="filter-min-price" placeholder="Min" min="0" style="width: 100%; padding: 6px 8px 6px 20px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 13px; outline: none; box-sizing: border-box;" oninput="handlePriceFilterChange()">
+          </div>
+          <span style="color: var(--text-secondary); font-size: 13px;">–</span>
+          <div style="position: relative; width: 92px;">
+           <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-secondary); pointer-events: none;">₹</span>
+           <input type="number" id="filter-max-price" placeholder="Max" min="0" style="width: 100%; padding: 6px 8px 6px 20px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 13px; outline: none; box-sizing: border-box;" oninput="handlePriceFilterChange()">
+          </div>
+         </div>
+        </div>
+
+        <!-- Rating Filter Control -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+         <label for="filter-rating-select" style="font-size: 13px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 4px; cursor: pointer;">
+          <span>⭐</span> Rating:
+         </label>
+         <select id="filter-rating-select" onchange="handleRatingFilterChange(this.value)" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 13px; font-weight: 600; cursor: pointer; outline: none; background: var(--bg-primary); color: var(--text-primary);">
+          <option value="0">All Ratings</option>
+          <option value="4.5">4.5★ &amp; above</option>
+          <option value="4">4.0★ &amp; above</option>
+          <option value="3.5">3.5★ &amp; above</option>
+          <option value="3">3.0★ &amp; above</option>
+         </select>
+        </div>
+
+        <!-- Stock Availability Control -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+         <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-primary); cursor: pointer; user-select: none;">
+          <input type="checkbox" id="filter-instock-checkbox" onchange="handleInStockFilterChange(this.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent-color);">
+          <span>In Stock Only</span>
+         </label>
+        </div>
+
+       </div>
+
+       <!-- Reset Filters Button -->
+       <div style="display: flex; align-items: center; gap: 10px;">
+        <button id="reset-filters-btn" onclick="resetFilters()" style="display: none; background: transparent; color: var(--text-secondary); border: 1px solid var(--border-color); padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;" title="Clear all applied filters">
+         ✕ Reset Filters
+        </button>
+       </div>
+
+      </div>
+
+      <!-- Active Filter Chips Row -->
+      <div id="active-filter-chips" style="display: none; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-color);">
+       <!-- Rendered dynamically -->
+      </div>
+     </div>
+
      <!-- Products Grid -->
      <div id="products-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">
       <!-- Products will be dynamically inserted here -->

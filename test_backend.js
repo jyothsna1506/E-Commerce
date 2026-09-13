@@ -555,6 +555,66 @@ const server = app.listen(5099, async () => {
       assert(Array.isArray(guestRes.body.reviewsList));
     });
 
+    // 37. Price Filtering (minPrice & maxPrice)
+    await test("GET /api/products?minPrice=1000&maxPrice=5000 filters by price range", async () => {
+      const res = await request("GET", "/api/products?minPrice=1000&maxPrice=5000");
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.success, true);
+      assert(res.body.products.length > 0);
+      res.body.products.forEach((p) => {
+        assert(p.price >= 1000, `Product ${p.name} price ₹${p.price} should be >= 1000`);
+        assert(p.price <= 5000, `Product ${p.name} price ₹${p.price} should be <= 5000`);
+      });
+    });
+
+    // 38. Minimum Rating Filtering (minRating)
+    await test("GET /api/products?minRating=4.5 filters products by customer rating", async () => {
+      const res = await request("GET", "/api/products?minRating=4.5");
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.success, true);
+      assert(res.body.products.length > 0);
+      res.body.products.forEach((p) => {
+        assert(p.rating >= 4.5, `Product ${p.name} rating ${p.rating} should be >= 4.5`);
+      });
+    });
+
+    // 39. In Stock Only Filtering (inStock=true)
+    await test("GET /api/products?inStock=true returns only available in-stock items", async () => {
+      const res = await request("GET", "/api/products?inStock=true");
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.success, true);
+      assert(res.body.products.length > 0);
+      res.body.products.forEach((p) => {
+        assert(p.stock > 0, `Product ${p.name} stock ${p.stock} should be > 0`);
+      });
+    });
+
+    // 40. Combined Multi-Criteria Filtering (category + price + minRating + inStock)
+    await test("GET /api/products with combined category, price, rating, and stock filters", async () => {
+      const res = await request(
+        "GET",
+        "/api/products?category=fashion&minPrice=500&maxPrice=3000&minRating=4.0&inStock=true"
+      );
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.success, true);
+      assert(res.body.products.length > 0);
+      res.body.products.forEach((p) => {
+        assert.strictEqual(p.category, "fashion");
+        assert(p.price >= 500 && p.price <= 3000);
+        assert(p.rating >= 4.0);
+        assert(p.stock > 0);
+      });
+    });
+
+    // 41. Extreme Filter Yielding Empty Results
+    await test("GET /api/products with extreme price filters gracefully returns empty count and list", async () => {
+      const res = await request("GET", "/api/products?minPrice=999999");
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.success, true);
+      assert.strictEqual(res.body.count, 0);
+      assert.strictEqual(res.body.products.length, 0);
+    });
+
     console.log("==================================================");
     console.log(`TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
     console.log("==================================================\n");

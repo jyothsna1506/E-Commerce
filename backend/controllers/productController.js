@@ -33,7 +33,7 @@ const getInitialReviewsForProduct = (p) => {
 // @access Public
 const getProducts = async (req, res, next) => {
   try {
-    const { category, search, sort, minPrice, maxPrice, inStock, limit = 60, page = 1 } = req.query;
+    const { category, search, sort, minPrice, maxPrice, inStock, minRating, limit = 60, page = 1 } = req.query;
 
     let products = [];
     let total = 0;
@@ -58,6 +58,9 @@ const getProducts = async (req, res, next) => {
       }
       if (inStock === "true") {
         query.stock = { $gt: 0 };
+      }
+      if (minRating) {
+        query.rating = { $gte: Number(minRating) };
       }
 
       let sortOption = {};
@@ -92,6 +95,7 @@ const getProducts = async (req, res, next) => {
       if (minPrice) list = list.filter((p) => p.price >= Number(minPrice));
       if (maxPrice) list = list.filter((p) => p.price <= Number(maxPrice));
       if (inStock === "true") list = list.filter((p) => p.stock > 0);
+      if (minRating) list = list.filter((p) => p.rating >= Number(minRating));
 
       if (sort === "price-low") list.sort((a, b) => a.price - b.price);
       else if (sort === "price-high") list.sort((a, b) => b.price - a.price);
