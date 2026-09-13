@@ -57,6 +57,11 @@ const userSchema = new mongoose.Schema(
         enum: ["under-18", "18-24", "25-34", "35-44", "45-54", "55+", ""],
         default: "25-34",
       },
+      gender: {
+        type: String,
+        enum: ["male", "female", "other", "prefer-not-to-say", ""],
+        default: "",
+      },
       preferredCategories: {
         type: [String],
         default: ["fashion", "electronics"],

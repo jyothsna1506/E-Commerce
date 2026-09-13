@@ -343,6 +343,9 @@
       .product-modal-grid {
         grid-template-columns: 1fr !important;
       }
+      .welcome-grid {
+        grid-template-columns: 1fr !important;
+      }
       .header-controls {
         gap: 6px !important;
       }

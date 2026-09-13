@@ -13,8 +13,8 @@
    <!-- Header -->
    <header id="main-header" style="background: var(--bg-header); color: white; padding: 16px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: background 0.3s; position: sticky; top: 0; z-index: 100;">
     <div style="max-width: 1400px; margin: 0 auto; padding: 0 20px;">
-     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-      <div style="cursor: pointer;" onclick="showProducts()">
+     <div id="header-top-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0px; transition: margin-bottom 0.2s;">
+      <div style="cursor: pointer;" onclick="handleLogoClick()">
        <h1 id="site-name" style="margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Shop Express</h1>
        <p id="tagline" style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Your one-stop shop for everything</p>
       </div>
@@ -22,28 +22,31 @@
        <button id="dark-mode-toggle" class="header-btn" style="background: transparent; color: white; border: 2px solid rgba(255,255,255,0.7); padding: 8px 16px; border-radius: 8px; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;">
         <span id="theme-icon">🌙</span> <span id="theme-text" class="header-btn-label">Dark</span>
        </button>
-       <button id="wishlist-button" class="header-btn" style="background: #e74c3c; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; position: relative; transition: all 0.2s;">
-        <span style="font-size: 18px;">❤</span> <span class="header-btn-label">Wishlist</span>
-        <span id="wishlist-count" class="cart-badge" style="background: #c0392b; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 12px; position: absolute; top: -6px; right: -6px; font-weight: 700;">0</span>
-       </button>
+       <!-- Store Navigation Controls (Visible in store mode or when authenticated) -->
+       <div id="header-store-controls" style="display: none; align-items: center; gap: 12px;">
+        <button id="wishlist-button" class="header-btn" style="background: #e74c3c; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; position: relative; transition: all 0.2s;">
+         <span style="font-size: 18px;">❤</span> <span class="header-btn-label">Wishlist</span>
+         <span id="wishlist-count" class="cart-badge" style="background: #c0392b; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 12px; position: absolute; top: -6px; right: -6px; font-weight: 700;">0</span>
+        </button>
+        <button id="orders-button" class="header-btn" style="background: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;">
+         <span style="font-size: 18px;">📦</span> <span class="header-btn-label">Orders</span>
+        </button>
+        <button id="cart-button" class="header-btn" style="background: var(--btn-yellow); color: #232f3e; border: none; padding: 12px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; position: relative; transition: all 0.2s;">
+         <span style="font-size: 18px;">🛒</span> <span class="header-btn-label">Cart</span>
+         <span id="cart-count" class="cart-badge" style="background: #ff4757; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 12px; position: absolute; top: -6px; right: -6px; font-weight: 700;">0</span>
+        </button>
+       </div>
        <button id="auth-button" class="header-btn" style="background: rgba(255, 255, 255, 0.15); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 12px 18px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;">
         <span style="font-size: 18px;">👤</span> <span id="auth-button-label" class="header-btn-label">Sign In</span>
        </button>
        <button id="quick-logout-btn" class="header-btn" title="Sign Out" style="display: none; background: rgba(239, 68, 68, 0.2); color: #ff6b6b; border: 1px solid rgba(239, 68, 68, 0.5); padding: 12px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; align-items: center; gap: 6px; transition: all 0.2s;">
         <span>🚪</span> <span class="header-btn-label">Sign Out</span>
        </button>
-       <button id="orders-button" class="header-btn" style="background: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;">
-        <span style="font-size: 18px;">📦</span> <span class="header-btn-label">Orders</span>
-       </button>
-       <button id="cart-button" class="header-btn" style="background: var(--btn-yellow); color: #232f3e; border: none; padding: 12px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; position: relative; transition: all 0.2s;">
-        <span style="font-size: 18px;">🛒</span> <span class="header-btn-label">Cart</span>
-        <span id="cart-count" class="cart-badge" style="background: #ff4757; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 12px; position: absolute; top: -6px; right: -6px; font-weight: 700;">0</span>
-       </button>
       </div>
      </div>
 
      <!-- Search Bar -->
-     <div style="position: relative;">
+     <div id="header-search-container" style="display: none; position: relative;">
       <input type="text" id="search-input" placeholder="Search products by name, description, or category..." style="width: 100%; padding: 12px 48px 12px 16px; border-radius: 8px; border: 2px solid transparent; font-size: 16px; background: white; color: #232f3e; box-shadow: 0 2px 6px rgba(0,0,0,0.1); outline: none;">
       <span style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font-size: 18px; pointer-events: none; opacity: 0.7;">🔍</span>
      </div>
@@ -54,7 +57,7 @@
    <main id="main-content" style="max-width: 1400px; margin: 0 auto; padding: 32px 20px;">
     
     <!-- Welcome / Authentication Screen (First-Open Experience) -->
-    <div id="welcome-view" style="display: none; margin-bottom: 36px;">
+    <div id="welcome-view" style="display: block; margin-bottom: 36px;">
      <div style="background: linear-gradient(135deg, rgba(35, 47, 62, 0.08) 0%, rgba(255, 153, 0, 0.09) 100%); border: 1px solid var(--border-color); border-radius: 16px; padding: 36px 28px; box-shadow: 0 4px 20px var(--card-shadow);">
       <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 36px; align-items: center;" class="welcome-grid">
        
@@ -93,10 +96,13 @@
          </div>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 12px;">
-         <button type="button" onclick="guestBrowseCatalog()" style="background: transparent; color: var(--text-primary); border: 2px solid var(--border-color); padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-          Explore Catalog as Guest →
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+         <button type="button" onclick="guestBrowseCatalog()" style="background: var(--btn-yellow); color: #232f3e; border: 2px solid #e09924; padding: 14px 24px; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(254, 189, 105, 0.4);">
+          <span>🛍️</span> <span>Continue as Guest (Browse Catalog)</span> <span style="font-size: 18px;">→</span>
          </button>
+         <p style="font-size: 12px; color: var(--text-secondary); margin: 0; text-align: center;">
+          Browse all 60 products, live search &amp; filter freely. Sign in required for Cart &amp; Checkout.
+         </p>
         </div>
        </div>
 
@@ -133,6 +139,13 @@
           <div style="margin-top: 12px; text-align: center;">
            <button type="button" onclick="fillDemoCredentials('welcome')" style="background: transparent; color: var(--accent-color); border: 1px dashed var(--accent-color); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">✨ Quick Fill Demo Account (Alex)</button>
           </div>
+
+          <!-- Continue as Guest link inside Sign In form -->
+          <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color); text-align: center;">
+           <button type="button" onclick="guestBrowseCatalog()" style="background: transparent; border: none; color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: underline;">
+            Just looking around? Continue as Guest →
+           </button>
+          </div>
          </form>
 
          <!-- Sign Up Form -->
@@ -164,6 +177,29 @@
           <details style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 10px; margin-bottom: 14px; font-size: 12px;">
            <summary style="font-weight: 600; color: var(--text-primary); cursor: pointer;">✨ Shopping Preferences (Optional)</summary>
            <div style="padding-top: 8px; display: grid; gap: 8px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+             <div>
+              <span style="font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 4px;">Age Range:</span>
+              <select id="welcome-signup-age" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; background: var(--bg-primary); color: var(--text-primary);">
+               <option value="under-18">Under 18</option>
+               <option value="18-24">18–24</option>
+               <option value="25-34" selected>25–34</option>
+               <option value="35-44">35–44</option>
+               <option value="45-54">45–54</option>
+               <option value="55+">55+</option>
+              </select>
+             </div>
+             <div>
+              <span style="font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 4px;">Gender (Optional):</span>
+              <select id="welcome-signup-gender" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; background: var(--bg-primary); color: var(--text-primary);">
+               <option value="" selected>Prefer not to say</option>
+               <option value="female">Female</option>
+               <option value="male">Male</option>
+               <option value="other">Other</option>
+              </select>
+             </div>
+            </div>
+
             <div>
              <span style="font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 4px;">Preferred Categories:</span>
              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
@@ -225,7 +261,7 @@
     </div>
 
     <!-- Products View -->
-    <div id="products-view">
+    <div id="products-view" style="display: none;">
      <!-- Categories -->
      <div style="margin-bottom: 28px; overflow-x: auto; white-space: nowrap; padding-bottom: 8px; display: flex; gap: 10px;">
       <button class="category-btn active" data-category="all" style="padding: 10px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;">All Products</button>
@@ -521,7 +557,7 @@
     </div>
 
     <!-- Personalized Recommendations Section -->
-    <div id="recommendations-section" style="margin-top: 56px; border-top: 2px solid var(--border-color); padding-top: 36px;">
+    <div id="recommendations-section" style="display: none; margin-top: 56px; border-top: 2px solid var(--border-color); padding-top: 36px;">
      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
       <div>
        <h2 style="font-size: 24px; font-weight: 700; margin: 0; color: var(--text-primary);">Recommended for You ✨</h2>
@@ -791,9 +827,32 @@
      <!-- Quick Preferences Accordion in Modal -->
      <details style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 10px; margin-bottom: 14px; font-size: 12px;">
       <summary style="font-weight: 600; color: var(--text-primary); cursor: pointer;">✨ Shopping Preferences (Optional)</summary>
-      <div style="padding-top: 8px; display: grid; gap: 8px;">
-       <div>
-        <span style="font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 4px;">Preferred Categories:</span>
+       <div style="padding-top: 8px; display: grid; gap: 8px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+         <div>
+          <span style="font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 4px;">Age Range:</span>
+          <select id="signup-age" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; background: var(--bg-primary); color: var(--text-primary);">
+           <option value="under-18">Under 18</option>
+           <option value="18-24">18–24</option>
+           <option value="25-34" selected>25–34</option>
+           <option value="35-44">35–44</option>
+           <option value="45-54">45–54</option>
+           <option value="55+">55+</option>
+          </select>
+         </div>
+         <div>
+          <span style="font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 4px;">Gender (Optional):</span>
+          <select id="signup-gender" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; background: var(--bg-primary); color: var(--text-primary);">
+           <option value="" selected>Prefer not to say</option>
+           <option value="female">Female</option>
+           <option value="male">Male</option>
+           <option value="other">Other</option>
+          </select>
+         </div>
+        </div>
+
+        <div>
+         <span style="font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 4px;">Preferred Categories:</span>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
          <label style="font-size: 12px; display: flex; align-items: center; gap: 6px;"><input type="checkbox" name="signup-pref-cat" value="fashion" checked> Fashion</label>
          <label style="font-size: 12px; display: flex; align-items: center; gap: 6px;"><input type="checkbox" name="signup-pref-cat" value="electronics" checked> Electronics</label>
@@ -965,6 +1024,17 @@
        <option value="35-44">35–44</option>
        <option value="45-54">45–54</option>
        <option value="55+">55+</option>
+      </select>
+     </div>
+
+     <!-- Gender -->
+     <div style="margin-bottom: 16px;">
+      <label for="pref-gender" style="display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--text-primary);">Gender (Optional)</label>
+      <select id="pref-gender" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+       <option value="" selected>Prefer not to say</option>
+       <option value="female">Female</option>
+       <option value="male">Male</option>
+       <option value="other">Other</option>
       </select>
      </div>
 

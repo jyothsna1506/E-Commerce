@@ -13,6 +13,7 @@ const formatUserResponse = (user) => {
     phone: user.phone || null,
     preferences: user.preferences || {
       ageRange: "25-34",
+      gender: "",
       preferredCategories: ["fashion", "electronics"],
       clothingSize: "M",
       shoeSize: "9",
@@ -46,6 +47,7 @@ const register = async (req, res, next) => {
 
     const initialPreferences = {
       ageRange: "25-34",
+      gender: "",
       preferredCategories: ["fashion", "electronics"],
       clothingSize: "M",
       shoeSize: "9",

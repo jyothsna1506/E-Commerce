@@ -1780,6 +1780,12 @@ function renderRecommendations() {
   const badge = document.getElementById('recommendations-badge');
   if (!section || !grid) return;
 
+  const welcomeView = document.getElementById('welcome-view');
+  if (welcomeView && welcomeView.style.display === 'block' && !authToken && !isGuestMode()) {
+    section.style.display = 'none';
+    return;
+  }
+
   const recs = getRecommendations(4);
   if (recs.length === 0) {
     section.style.display = 'none';
@@ -2172,9 +2178,55 @@ function updateURLHash(view) {
   window.location.hash = view;
 }
 
+function isGuestMode() {
+  return sessionStorage.getItem('shop_express_guest_mode') === 'true';
+}
+
+function showWelcomeScreen() {
+  const welcomeView = document.getElementById('welcome-view');
+  if (welcomeView) welcomeView.style.display = 'block';
+
+  const headerStore = document.getElementById('header-store-controls');
+  if (headerStore) headerStore.style.display = 'none';
+  const headerSearch = document.getElementById('header-search-container');
+  if (headerSearch) headerSearch.style.display = 'none';
+  const headerRow = document.getElementById('header-top-row');
+  if (headerRow) headerRow.style.marginBottom = '0px';
+
+  document.getElementById('products-view').style.display = 'none';
+  document.getElementById('cart-view').style.display = 'none';
+  document.getElementById('payment-view').style.display = 'none';
+  document.getElementById('wishlist-view').style.display = 'none';
+  document.getElementById('orders-view').style.display = 'none';
+  document.getElementById('recommendations-section').style.display = 'none';
+  document.getElementById('recently-viewed-section').style.display = 'none';
+
+  updateAuthUI(null);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (window.location.hash) {
+    history.replaceState(null, '', window.location.pathname);
+  }
+}
+
+function handleLogoClick() {
+  if (authToken || isGuestMode()) {
+    showProducts();
+  } else {
+    showWelcomeScreen();
+  }
+}
+
 function showProducts() {
   const welcomeView = document.getElementById('welcome-view');
-  if (welcomeView && authToken) welcomeView.style.display = 'none';
+  if (welcomeView) welcomeView.style.display = 'none';
+
+  const headerStore = document.getElementById('header-store-controls');
+  if (headerStore) headerStore.style.display = 'flex';
+  const headerSearch = document.getElementById('header-search-container');
+  if (headerSearch) headerSearch.style.display = 'block';
+  const headerRow = document.getElementById('header-top-row');
+  if (headerRow) headerRow.style.marginBottom = '16px';
+
   document.getElementById('products-view').style.display = 'block';
   document.getElementById('cart-view').style.display = 'none';
   document.getElementById('payment-view').style.display = 'none';
@@ -2295,6 +2347,10 @@ function showPayment() {
 // Hash router
 window.addEventListener('hashchange', function() {
   const hash = window.location.hash.replace('#', '');
+  if (!authToken && !isGuestMode()) {
+    showWelcomeScreen();
+    return;
+  }
   if (hash === 'cart') {
     if (!authToken) {
       promptAuthForAction('view_cart', null, 'Please sign in or create an account to view and access your Shopping Cart.');
@@ -2999,10 +3055,11 @@ function updateAuthUI(user) {
     const dispEmail = document.getElementById('profile-display-email');
     if (dispEmail) dispEmail.textContent = user.email || (user.phone ? `Phone: ${user.phone}` : '');
   } else {
-    authBtnLabel.textContent = 'Sign In';
+    const isGuest = isGuestMode();
+    authBtnLabel.textContent = isGuest ? 'Guest (Sign In)' : 'Sign In';
     if (authBtn) {
-      authBtn.title = 'Sign In to your Shop Express account';
-      authBtn.style.background = 'rgba(255, 255, 255, 0.15)';
+      authBtn.title = isGuest ? 'Browsing as Guest - Click to Sign In' : 'Sign In to your Shop Express account';
+      authBtn.style.background = isGuest ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.15)';
       authBtn.style.borderColor = 'rgba(255, 255, 255, 0.4)';
     }
     if (quickLogoutBtn) {
@@ -3016,6 +3073,9 @@ function populatePreferencesForm(prefs = {}) {
   if (!prefs) return;
   if (prefs.ageRange && document.getElementById('pref-age-range')) {
     document.getElementById('pref-age-range').value = prefs.ageRange;
+  }
+  if (prefs.gender && document.getElementById('pref-gender')) {
+    document.getElementById('pref-gender').value = prefs.gender;
   }
   if (prefs.clothingSize && document.getElementById('pref-clothing-size')) {
     document.getElementById('pref-clothing-size').value = prefs.clothingSize;
@@ -3246,10 +3306,10 @@ function executePendingAction() {
 }
 
 function guestBrowseCatalog() {
-  const welcomeView = document.getElementById('welcome-view');
-  if (welcomeView) welcomeView.style.display = 'none';
+  sessionStorage.setItem('shop_express_guest_mode', 'true');
   showProducts();
-  showToast('Welcome, Guest! Feel free to browse. Sign in anytime to unlock Wishlist, Orders & Checkout.', false);
+  updateAuthUI(null);
+  showToast('Welcome, Guest! Feel free to browse our products. Sign in anytime to unlock Cart, Wishlist & Checkout.', false);
 }
 
 function switchWelcomeAuthTab(tab) {
@@ -3624,6 +3684,7 @@ function logoutUser(notify = true) {
   localStorage.removeItem('wishlist');
   localStorage.removeItem('orders');
   localStorage.removeItem('applied-coupon');
+  sessionStorage.removeItem('shop_express_guest_mode');
   cart = [];
   wishlist = [];
   orders = [];
@@ -3631,7 +3692,6 @@ function logoutUser(notify = true) {
   discountPercent = 0;
   updateCartCount();
   updateWishlistCount();
-  updateAuthUI(null);
 
   const profModal = document.getElementById('profile-modal');
   if (profModal) profModal.style.display = 'none';
@@ -3642,26 +3702,9 @@ function logoutUser(notify = true) {
   const phoneModal = document.getElementById('phone-otp-modal');
   if (phoneModal) phoneModal.style.display = 'none';
 
-  const ordersView = document.getElementById('orders-view');
-  if (ordersView) ordersView.style.display = 'none';
-  const cartView = document.getElementById('cart-view');
-  if (cartView) cartView.style.display = 'none';
-  const paymentView = document.getElementById('payment-view');
-  if (paymentView) paymentView.style.display = 'none';
-  const wishlistView = document.getElementById('wishlist-view');
-  if (wishlistView) wishlistView.style.display = 'none';
+  showWelcomeScreen();
 
-  // Show welcome view upon sign out
-  const welcomeView = document.getElementById('welcome-view');
-  if (welcomeView) welcomeView.style.display = 'block';
-  const productsView = document.getElementById('products-view');
-  if (productsView) productsView.style.display = 'none';
-  document.getElementById('recommendations-section').style.display = 'none';
-  document.getElementById('recently-viewed-section').style.display = 'none';
-
-  window.scrollTo({ top: 0, behavior: 'smooth' });
   if (notify) showToast('Signed out successfully.');
-  fetchAndRenderRecommendations();
 }
 
 async function handleSavePreferences(e) {
@@ -3669,6 +3712,8 @@ async function handleSavePreferences(e) {
   if (!authToken) return;
 
   const ageRange = document.getElementById('pref-age-range').value;
+  const genderEl = document.getElementById('pref-gender');
+  const gender = genderEl ? genderEl.value : '';
   const clothingSize = document.getElementById('pref-clothing-size').value;
   const shoeSize = document.getElementById('pref-shoe-size').value;
   const selectedCategories = [];
@@ -3676,6 +3721,7 @@ async function handleSavePreferences(e) {
 
   const preferences = {
     ageRange,
+    gender,
     clothingSize,
     shoeSize,
     preferredCategories: selectedCategories
@@ -3722,6 +3768,12 @@ function renderScoredRecommendations(recs) {
   const subtitle = document.getElementById('recommendations-subtitle');
   const badge = document.getElementById('recommendations-badge');
   if (!section || !grid) return;
+
+  const welcomeView = document.getElementById('welcome-view');
+  if (welcomeView && welcomeView.style.display === 'block' && !authToken && !isGuestMode()) {
+    section.style.display = 'none';
+    return;
+  }
 
   section.style.display = 'block';
 
@@ -3905,7 +3957,14 @@ function initAuthModalEvents() {
       const clothingSizeEl = document.getElementById('signup-pref-clothing-size');
       const shoeSizeEl = document.getElementById('signup-pref-shoe-size');
 
+      const ageEl = document.getElementById('signup-age');
+      const genderEl = document.getElementById('signup-gender');
+      const ageRange = ageEl ? ageEl.value : '25-34';
+      const gender = genderEl ? genderEl.value : '';
+
       const preferences = {
+        ageRange,
+        gender,
         preferredCategories: prefCats.length > 0 ? prefCats : ['fashion', 'electronics'],
         clothingSize: clothingSizeEl ? clothingSizeEl.value : 'M',
         shoeSize: shoeSizeEl ? shoeSizeEl.value : '9'
@@ -3941,8 +4000,14 @@ function initAuthModalEvents() {
       document.querySelectorAll('input[name="welcome-pref-cat"]:checked').forEach(c => prefCats.push(c.value));
       const clothingSizeEl = document.getElementById('welcome-pref-clothing-size');
       const shoeSizeEl = document.getElementById('welcome-pref-shoe-size');
+      const ageEl = document.getElementById('welcome-signup-age');
+      const genderEl = document.getElementById('welcome-signup-gender');
+      const ageRange = ageEl ? ageEl.value : '25-34';
+      const gender = genderEl ? genderEl.value : '';
 
       const preferences = {
+        ageRange,
+        gender,
         preferredCategories: prefCats.length > 0 ? prefCats : ['fashion', 'electronics'],
         clothingSize: clothingSizeEl ? clothingSizeEl.value : 'M',
         shoeSize: shoeSizeEl ? shoeSizeEl.value : '9'
@@ -3984,30 +4049,25 @@ function initAuthModalEvents() {
 }
 
 function checkInitialAuthState() {
-  const welcomeView = document.getElementById('welcome-view');
-  const productsView = document.getElementById('products-view');
-
-  if (!authToken) {
-    if (welcomeView) welcomeView.style.display = 'block';
-    if (productsView) productsView.style.display = 'none';
-    document.getElementById('cart-view').style.display = 'none';
-    document.getElementById('payment-view').style.display = 'none';
-    document.getElementById('wishlist-view').style.display = 'none';
-    document.getElementById('orders-view').style.display = 'none';
-    document.getElementById('recommendations-section').style.display = 'none';
-    document.getElementById('recently-viewed-section').style.display = 'none';
-  } else {
-    if (welcomeView) welcomeView.style.display = 'none';
+  if (authToken) {
+    showProducts();
     const initialHash = window.location.hash.replace('#', '');
     if (initialHash === 'cart') showCart();
     else if (initialHash === 'wishlist') showWishlist();
     else if (initialHash === 'orders') showOrders();
     else if (initialHash === 'checkout') showPayment();
-    else showProducts();
+  } else if (isGuestMode()) {
+    showProducts();
+    updateAuthUI(null);
+  } else {
+    showWelcomeScreen();
   }
 }
 
 // Global function exports for inline HTML event handlers
+window.handleLogoClick = handleLogoClick;
+window.showWelcomeScreen = showWelcomeScreen;
+window.isGuestMode = isGuestMode;
 window.promptAuthForAction = promptAuthForAction;
 window.executePendingAction = executePendingAction;
 window.guestBrowseCatalog = guestBrowseCatalog;

@@ -131,19 +131,24 @@ The application includes 60 fully populated products with high-quality imagery a
 
 ## 🔐 Authentication & Access Control
 
-Authentication is strictly enforced on both the client and server:
+### Application Entry Flow & Landing Screen
+- **Initial Welcome Screen**: When an unauthenticated user opens the application, the full shopping interface (catalog, search bar, store controls, cart, wishlist, orders) is hidden. Instead, a dedicated Welcome / Authentication Landing Screen greets the visitor with Shop Express branding, value propositions, and authentication portals.
+- **Continue as Guest (Browse Catalog)**: Visitors can click the prominent "Continue as Guest" button on the hero banner or authentication card to enter Guest Browsing Mode. This reveals the full catalog and shopping controls, while maintaining all strict access-control protections on cart, wishlist, orders, and checkout.
+- **Authenticated Experience**: Upon signing in or registering, users enter the full shopping storefront. The navigation header displays the user's name, profile avatar initial, and a one-click Sign Out button.
+- **Logout Behavior**: Signing out completely resets the active session, removes guest mode flags, and immediately returns to the Welcome / Authentication Landing Screen.
 
 ### Guest Experience
-- Unauthenticated visitors can browse all 60 catalog items, use live search, filter by department, sort, and open the product quick-view modal.
+- Unauthenticated visitors in Guest Mode can browse all 60 catalog items, use live search, filter by department, sort, and open the product quick-view modal.
 - Protected actions (Adding to cart, viewing cart, toggling wishlist, checking out, placing orders, making payments, and viewing order history) are gated.
 - Triggering any protected action displays a sign-in modal with a contextual banner explaining why authentication is needed.
 
-### Supported Authentication Modes
+### Supported Authentication Modes & Personalization
 1. **Email & Password**: Standard sign-up and sign-in with password hashing (`bcryptjs`) and confirm password validation.
 2. **Mobile Number Login**: Sign in using a 10-digit phone number and password.
-3. **One-Click Demo Account**: Quick-fill button for evaluation (`alex@example.com` / `password123`).
-4. **Google Sign-In Simulation**: Modal with profile selection and custom Google account input (`POST /api/auth/google`).
-5. **Phone OTP Verification**: 2-step verification code flow (`POST /api/auth/phone-login`, Demo OTP: `123456`).
+3. **Registration Personalization**: Account registration collects full name, email, phone, password, confirm password, age range (`under-18`, `18-24`, `25-34`, `35-44`, `45-54`, `55+`), optional gender (`male`, `female`, `other`, `prefer-not-to-say`), preferred product categories, clothing size, and shoe size. These preferences feed directly into the personalized recommendations engine.
+4. **One-Click Demo Account**: Quick-fill button for evaluation (`alex@example.com` / `password123`).
+5. **Google Sign-In Simulation**: Modal with profile selection and custom Google account input (`POST /api/auth/google`).
+6. **Phone OTP Verification**: 2-step verification code flow (`POST /api/auth/phone-login`, Demo OTP: `123456`).
 
 ### Action Restoration
 When an unauthenticated guest clicks **Add to Cart** on a product card or modal, the selected product ID, quantity, and variant are preserved in memory. Immediately upon successful sign-in, the system completes the pending action, adds the item to the cart, and displays a confirmation toast.
