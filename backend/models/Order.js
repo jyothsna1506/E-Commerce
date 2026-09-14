@@ -96,15 +96,28 @@ const orderSchema = new mongoose.Schema(
     },
     orderStatus: {
       type: String,
-      enum: ["Placed", "Confirmed", "Shipped", "Delivered", "Cancelled"],
+      enum: ["Placed", "Confirmed", "Shipped", "Out for Delivery", "Delivered", "Cancelled"],
       default: "Placed",
       index: true,
     },
+    carrier: {
+      type: String,
+      default: "Express Logistics",
+    },
+    trackingNumber: {
+      type: String,
+      default: null,
+    },
+    estimatedDeliveryDate: {
+      type: Date,
+      default: null,
+    },
     trackingHistory: [
       {
-        status: String,
+        status: { type: String, required: true },
         timestamp: { type: Date, default: Date.now },
-        description: String,
+        description: { type: String, default: "" },
+        location: { type: String, default: "Fulfillment Center" },
       },
     ],
   },
@@ -113,16 +126,26 @@ const orderSchema = new mongoose.Schema(
   }
 );
 
-// Auto-populate tracking history on initial creation
+// Auto-populate tracking details and history on initial creation
 orderSchema.pre("save", function (next) {
-  if (this.isNew && (!this.trackingHistory || this.trackingHistory.length === 0)) {
-    this.trackingHistory = [
-      {
-        status: "Placed",
-        timestamp: new Date(),
-        description: "Order placed successfully.",
-      },
-    ];
+  if (this.isNew) {
+    if (!this.trackingNumber) {
+      const code = this.orderId ? this.orderId.replace(/^ORD-/, "") : Date.now().toString().slice(-6);
+      this.trackingNumber = `EXP-TRK-${code}`;
+    }
+    if (!this.estimatedDeliveryDate) {
+      this.estimatedDeliveryDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    }
+    if (!this.trackingHistory || this.trackingHistory.length === 0) {
+      this.trackingHistory = [
+        {
+          status: "Placed",
+          timestamp: new Date(),
+          description: "Order placed successfully.",
+          location: "Fulfillment Center",
+        },
+      ];
+    }
   }
   next();
 });

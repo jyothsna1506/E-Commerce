@@ -615,6 +615,192 @@ const server = app.listen(5099, async () => {
       assert.strictEqual(res.body.products.length, 0);
     });
 
+    // 42. Order Tracking Retrieval & Delivery Estimate Persistence
+    let trackingOrderId = null;
+    await test("GET /api/orders/:id/tracking retrieves dynamic order tracking and persisted delivery estimate", async () => {
+      const orderRes = await request(
+        "POST",
+        "/api/orders",
+        {
+          items: [
+            {
+              productId: 2,
+              name: "Premium Hoodie",
+              price: 1299,
+              quantity: 1,
+              image: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&q=80",
+            },
+          ],
+          shippingAddress: {
+            fullName: "Jane Doe",
+            email: testEmail,
+            phone: "9876543210",
+            street: "123 High Street",
+            city: "Bengaluru",
+            state: "Karnataka",
+            pincode: "560001",
+          },
+          paymentMethod: "card",
+          subtotal: 1299,
+          total: 1299,
+        },
+        authToken
+      );
+      assert.strictEqual(orderRes.status, 201);
+      trackingOrderId = orderRes.body.order.orderId;
+
+      const trackRes = await request("GET", `/api/orders/${trackingOrderId}/tracking`, null, authToken);
+      assert.strictEqual(trackRes.status, 200);
+      assert.strictEqual(trackRes.body.success, true);
+      const { tracking } = trackRes.body;
+      assert.strictEqual(tracking.orderId, trackingOrderId);
+      assert.strictEqual(tracking.orderStatus, "Placed");
+      assert(tracking.carrier, "Carrier should be present");
+      assert(tracking.trackingNumber, "Tracking number should be present");
+      assert(tracking.estimatedDeliveryDate, "Estimated delivery date should be present");
+      assert(Array.isArray(tracking.milestones), "Milestones should be an array");
+      assert.strictEqual(tracking.milestones.length, 4);
+      assert.strictEqual(tracking.milestones[0].stage, "Placed");
+      assert.strictEqual(tracking.milestones[0].isCompleted, true);
+      assert(tracking.trackingHistory.length >= 1);
+      assert(tracking.trackingHistory[0].timestamp, "Initial tracking history should have timestamp");
+    });
+
+    // 43. Correct Status Progression with Timestamps (Placed -> Shipped -> Out for Delivery -> Delivered)
+    await test("PUT /api/orders/:id/progress advances order status correctly with timestamps", async () => {
+      // Step 1: Placed -> Shipped
+      const step1 = await request("PUT", `/api/orders/${trackingOrderId}/progress`, null, authToken);
+      assert.strictEqual(step1.status, 200);
+      assert.strictEqual(step1.body.order.orderStatus, "Shipped");
+      assert.strictEqual(step1.body.order.trackingHistory[1].status, "Shipped");
+      assert(step1.body.order.trackingHistory[1].timestamp);
+
+      // Step 2: Shipped -> Out for Delivery
+      const step2 = await request("PUT", `/api/orders/${trackingOrderId}/progress`, null, authToken);
+      assert.strictEqual(step2.status, 200);
+      assert.strictEqual(step2.body.order.orderStatus, "Out for Delivery");
+      assert.strictEqual(step2.body.order.trackingHistory[2].status, "Out for Delivery");
+
+      // Step 3: Out for Delivery -> Delivered
+      const step3 = await request("PUT", `/api/orders/${trackingOrderId}/progress`, null, authToken);
+      assert.strictEqual(step3.status, 200);
+      assert.strictEqual(step3.body.order.orderStatus, "Delivered");
+      assert.strictEqual(step3.body.order.trackingHistory[3].status, "Delivered");
+      assert(step3.body.order.trackingHistory[3].timestamp);
+
+      // Verify tracking retrieval reflects Delivered state with deliveredAt
+      const trackRes = await request("GET", `/api/orders/${trackingOrderId}/tracking`, null, authToken);
+      assert.strictEqual(trackRes.status, 200);
+      assert.strictEqual(trackRes.body.tracking.orderStatus, "Delivered");
+      assert(trackRes.body.tracking.deliveredAt, "deliveredAt should be populated when Delivered");
+      assert.strictEqual(trackRes.body.tracking.milestones[3].isCompleted, true);
+    });
+
+    // 44. Enforce Delivered State (Cannot progress past Delivered)
+    await test("PUT /api/orders/:id/progress rejects progression once order is already Delivered", async () => {
+      const res = await request("PUT", `/api/orders/${trackingOrderId}/progress`, null, authToken);
+      assert.strictEqual(res.status, 400);
+      assert.strictEqual(res.body.success, false);
+    });
+
+    // 45. Invoice Data Retrieval
+    await test("GET /api/orders/:id/invoice returns full invoice and receipt data", async () => {
+      const res = await request("GET", `/api/orders/${trackingOrderId}/invoice`, null, authToken);
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.success, true);
+      const { invoice } = res.body;
+      assert(invoice.invoiceNumber.startsWith("INV-ORD-"));
+      assert.strictEqual(invoice.orderId, trackingOrderId);
+      assert.strictEqual(invoice.orderStatus, "Delivered");
+      assert.strictEqual(invoice.storeName, "Shop Express");
+      assert.strictEqual(invoice.customer.name, "Jane Doe");
+      assert.strictEqual(invoice.customer.email, testEmail);
+      assert.strictEqual(invoice.items.length, 1);
+      assert.strictEqual(invoice.items[0].name, "Premium Hoodie");
+      assert.strictEqual(invoice.items[0].price, 1299);
+      assert.strictEqual(invoice.pricing.total, 1299);
+      assert(invoice.pricing.taxAmount > 0);
+      assert.strictEqual(invoice.payment.method, "CARD");
+      assert(invoice.tracking.trackingNumber);
+    });
+
+    // 46. Unauthenticated Rejection for Tracking, Invoice, and Progress
+    await test("GET /api/orders/:id/tracking and /invoice reject unauthenticated requests with 401", async () => {
+      const trackRes = await request("GET", `/api/orders/${trackingOrderId}/tracking`);
+      assert.strictEqual(trackRes.status, 401);
+
+      const invRes = await request("GET", `/api/orders/${trackingOrderId}/invoice`);
+      assert.strictEqual(invRes.status, 401);
+
+      const progRes = await request("PUT", `/api/orders/${trackingOrderId}/progress`, {});
+      assert.strictEqual(progRes.status, 401);
+    });
+
+    // 47. Cross-User Security Isolation for Tracking and Invoice
+    await test("GET /api/orders/:id/tracking and /invoice strictly deny access to User B with 403", async () => {
+      const trackRes = await request("GET", `/api/orders/${trackingOrderId}/tracking`, null, googleAuthToken);
+      assert.strictEqual(trackRes.status, 403);
+      assert.strictEqual(trackRes.body.success, false);
+
+      const invRes = await request("GET", `/api/orders/${trackingOrderId}/invoice`, null, googleAuthToken);
+      assert.strictEqual(invRes.status, 403);
+      assert.strictEqual(invRes.body.success, false);
+
+      const progRes = await request("PUT", `/api/orders/${trackingOrderId}/progress`, null, googleAuthToken);
+      assert.strictEqual(progRes.status, 403);
+      assert.strictEqual(progRes.body.success, false);
+    });
+
+    // 48. Cancellation Compatibility with Status Progression
+    await test("Order cancellation is compatible with tracking and prevents further progression", async () => {
+      // Create an order to be cancelled
+      const newOrder = await request(
+        "POST",
+        "/api/orders",
+        {
+          items: [
+            {
+              productId: 3,
+              name: "Silk Scarf",
+              price: 499,
+              quantity: 1,
+              image: "https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=600&q=80",
+            },
+          ],
+          shippingAddress: {
+            fullName: "Cancel Tester",
+            email: testEmail,
+            phone: "9876543210",
+            street: "Cancel Lane",
+            city: "Bengaluru",
+            state: "Karnataka",
+            pincode: "560001",
+          },
+          paymentMethod: "cod",
+          subtotal: 499,
+          total: 499,
+        },
+        authToken
+      );
+      assert.strictEqual(newOrder.status, 201);
+      const cancelOrderId = newOrder.body.order.orderId;
+
+      // Cancel order while in Placed status
+      const cancelRes = await request("PUT", `/api/orders/${cancelOrderId}/cancel`, null, authToken);
+      assert.strictEqual(cancelRes.status, 200);
+      assert.strictEqual(cancelRes.body.order.orderStatus, "Cancelled");
+
+      // Progressing cancelled order must fail with 400
+      const progRes = await request("PUT", `/api/orders/${cancelOrderId}/progress`, null, authToken);
+      assert.strictEqual(progRes.status, 400);
+      assert.strictEqual(progRes.body.success, false);
+
+      // Delivered order cannot be cancelled
+      const cancelDeliveredRes = await request("PUT", `/api/orders/${trackingOrderId}/cancel`, null, authToken);
+      assert.strictEqual(cancelDeliveredRes.status, 400);
+      assert.strictEqual(cancelDeliveredRes.body.success, false);
+    });
+
     console.log("==================================================");
     console.log(`TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
     console.log("==================================================\n");

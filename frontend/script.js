@@ -3057,6 +3057,10 @@ function processOrderPayment(paymentMethodInfo, shippingAddress) {
     const total = Math.max(0, subtotal - discount);
     const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
 
+    const carrier = "Express Logistics";
+    const trackingNumber = `EXP-TRK-${orderId.replace(/^ORD-/, '')}`;
+    const estimatedDeliveryDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+
     const newOrder = {
       id: orderId,
       date: new Date().toISOString(),
@@ -3067,7 +3071,19 @@ function processOrderPayment(paymentMethodInfo, shippingAddress) {
       total: total,
       customer: shippingAddress,
       payment: paymentMethodInfo,
-      status: 'Order Placed'
+      status: 'Placed',
+      orderStatus: 'Placed',
+      carrier,
+      trackingNumber,
+      estimatedDeliveryDate,
+      trackingHistory: [
+        {
+          status: 'Placed',
+          timestamp: new Date().toISOString(),
+          description: 'Order placed successfully via ' + (paymentMethodInfo.method || 'Card'),
+          location: 'Fulfillment Center'
+        }
+      ]
     };
 
     orders.unshift(newOrder);
@@ -3106,7 +3122,8 @@ document.getElementById('close-modal').addEventListener('click', function() {
 // Order History Logic
 function getStatusColor(status) {
   switch (status) {
-    case 'Order Placed': return '#3498db';
+    case 'Order Placed':
+    case 'Placed': return '#3498db';
     case 'Confirmed': return '#16a085';
     case 'Shipped': return '#8e44ad';
     case 'Out for Delivery': return '#f39c12';
@@ -3152,9 +3169,9 @@ function renderOrders() {
       hour: '2-digit',
       minute: '2-digit'
     });
-    const statusColor = getStatusColor(order.status);
-    const isCancelled = order.status === 'Cancelled';
-    const isDelivered = order.status === 'Delivered';
+    const statusColor = getStatusColor(order.status || order.orderStatus);
+    const isCancelled = order.status === 'Cancelled' || order.orderStatus === 'Cancelled';
+    const isDelivered = order.status === 'Delivered' || order.orderStatus === 'Delivered';
 
     return `
     <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px var(--card-shadow); margin-bottom: 24px; border: 1px solid var(--border-color); border-left: 5px solid ${statusColor};">
@@ -3163,10 +3180,12 @@ function renderOrders() {
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
             <h3 style="font-size: 19px; font-weight: 700; margin: 0; color: var(--text-primary);">Order #${order.id}</h3>
             <span style="background: ${statusColor}18; color: ${statusColor}; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 4px; border: 1px solid ${statusColor}40;">
-              ● ${order.status}
+              ● ${order.status || order.orderStatus}
             </span>
           </div>
-          <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">Placed on ${orderDate}</p>
+          <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">
+            Placed on ${orderDate} • <span style="color: var(--accent-color); font-weight: 600;">${isDelivered ? 'Delivered' : (order.estimatedDeliveryDate ? 'Est. Delivery: ' + new Date(order.estimatedDeliveryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Est. Delivery: 3-4 days')}</span>
+          </p>
         </div>
         <div style="text-align: right;">
           <div style="font-size: 22px; font-weight: 700; color: var(--accent-color);">₹${order.total.toFixed(2)}</div>
@@ -3205,6 +3224,7 @@ function renderOrders() {
       ` : ''}
 
       <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 16px; flex-wrap: wrap;">
+        <button onclick="openInvoiceModal('${order.id}')" style="background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">📄 Invoice</button>
         <button onclick="viewOrderDetails('${order.id}')" style="background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">Track &amp; View Details</button>
         <button onclick="buyAgain('${order.id}')" style="background: var(--accent-color); color: white; border: none; padding: 8px 18px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">Buy Again 🛒</button>
         ${(!isCancelled && !isDelivered) ? `
@@ -3260,82 +3280,456 @@ function cancelOrder(orderId) {
   }
 }
 
+let currentViewingOrderId = null;
+
 function viewOrderDetails(orderId) {
+  currentViewingOrderId = orderId;
   const order = orders.find(o => o.id === orderId);
   if (!order) return;
 
-  document.getElementById('detail-order-id').textContent = `Order #${order.id}`;
+  const currentStatus = order.orderStatus || order.status || 'Placed';
+  const normStatus = currentStatus === 'Order Placed' ? 'Placed' : currentStatus;
+  const isCancelled = normStatus === 'Cancelled';
+  const isDelivered = normStatus === 'Delivered';
+
+  // Order ID & Status Badge
+  const orderIdEl = document.getElementById('detail-order-id');
+  if (orderIdEl) orderIdEl.textContent = `Order #${order.id}`;
   
   const badge = document.getElementById('detail-order-badge');
-  badge.textContent = order.status;
-  badge.style.background = getStatusColor(order.status) + '20';
-  badge.style.color = getStatusColor(order.status);
-  badge.style.border = `1px solid ${getStatusColor(order.status)}40`;
+  if (badge) {
+    badge.textContent = normStatus;
+    const sColor = getStatusColor(normStatus);
+    badge.style.background = sColor + '20';
+    badge.style.color = sColor;
+    badge.style.border = `1px solid ${sColor}40`;
+  }
 
-  // Tracking progress
-  const steps = ['placed', 'confirmed', 'shipped', 'delivered'];
-  const currentStepIndex = order.status === 'Order Placed' ? 0 :
-                          order.status === 'Confirmed' ? 1 :
-                          order.status === 'Shipped' ? 2 :
-                          order.status === 'Delivered' ? 3 : -1;
+  // Delivery Banner
+  const deliveryTitle = document.getElementById('detail-delivery-title');
+  const deliveryDateEl = document.getElementById('detail-delivery-date');
+  const carrierEl = document.getElementById('detail-carrier-name');
+  const awbEl = document.getElementById('detail-awb-number');
 
-  steps.forEach((st, idx) => {
-    const el = document.getElementById(`step-${st}`);
-    el.className = 'tracker-step';
-    if (order.status === 'Cancelled') {
-      if (idx === 0) el.classList.add('cancelled');
+  if (carrierEl) carrierEl.textContent = order.carrier || 'Express Logistics';
+  if (awbEl) awbEl.textContent = order.trackingNumber || `EXP-TRK-${String(order.id).replace(/^ORD-/, '')}`;
+
+  if (isDelivered) {
+    if (deliveryTitle) deliveryTitle.textContent = 'Delivered:';
+    const delTimestamp = order.trackingHistory?.find(h => h.status === 'Delivered')?.timestamp || order.date;
+    const delDateStr = new Date(delTimestamp).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    if (deliveryDateEl) deliveryDateEl.textContent = `${delDateStr} (Handed to resident)`;
+  } else if (isCancelled) {
+    if (deliveryTitle) deliveryTitle.textContent = 'Order Status:';
+    if (deliveryDateEl) deliveryDateEl.textContent = 'Cancelled upon customer request';
+  } else {
+    if (deliveryTitle) deliveryTitle.textContent = 'Estimated Delivery:';
+    const estDate = order.estimatedDeliveryDate ? new Date(order.estimatedDeliveryDate) : new Date(new Date(order.date).getTime() + 3 * 24 * 60 * 60 * 1000);
+    const estDateStr = estDate.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    if (deliveryDateEl) deliveryDateEl.textContent = estDateStr;
+  }
+
+  // 4-Stage Visual Tracking Bar: Placed -> Shipped -> Out for Delivery -> Delivered
+  const stages = [
+    { key: 'placed', status: 'Placed', rank: 1 },
+    { key: 'shipped', status: 'Shipped', rank: 2 },
+    { key: 'out-for-delivery', status: 'Out for Delivery', rank: 3 },
+    { key: 'delivered', status: 'Delivered', rank: 4 }
+  ];
+
+  const rankMap = {
+    'Placed': 1,
+    'Confirmed': 1.5,
+    'Shipped': 2,
+    'Out for Delivery': 3,
+    'Delivered': 4,
+    'Cancelled': -1
+  };
+  const currentRank = rankMap[normStatus] || 1;
+
+  stages.forEach(st => {
+    const stepEl = document.getElementById(`step-${st.key}`);
+    const timeEl = document.getElementById(`timestamp-${st.key}`);
+    if (!stepEl) return;
+
+    stepEl.className = 'tracker-step';
+    const dot = stepEl.querySelector('.tracker-dot');
+
+    if (isCancelled) {
+      if (st.key === 'placed') {
+        stepEl.classList.add('cancelled');
+        if (dot) dot.textContent = '✕';
+      }
+      if (timeEl) timeEl.textContent = '';
     } else {
-      if (idx < currentStepIndex) el.classList.add('completed');
-      else if (idx === currentStepIndex) el.classList.add('active');
+      if (currentRank > st.rank) {
+        stepEl.classList.add('completed');
+        if (dot) dot.textContent = '✓';
+      } else if (currentRank === st.rank || (st.key === 'placed' && normStatus === 'Confirmed')) {
+        stepEl.classList.add('active');
+        if (dot) dot.textContent = '●';
+      } else {
+        if (dot) dot.textContent = st.rank;
+      }
+
+      // Populate timestamp if available in trackingHistory
+      const entry = (order.trackingHistory || []).find(h => h.status === st.status || (st.status === 'Placed' && h.status === 'Confirmed'));
+      if (timeEl) {
+        if (entry && entry.timestamp) {
+          timeEl.textContent = new Date(entry.timestamp).toLocaleDateString('en-IN', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        } else if (st.key === 'placed' && order.date) {
+          timeEl.textContent = new Date(order.date).toLocaleDateString('en-IN', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        } else {
+          timeEl.textContent = '';
+        }
+      }
     }
   });
 
+  // Progression Simulation Bar
+  const progBar = document.getElementById('detail-progression-bar');
+  const progHint = document.getElementById('detail-progression-hint');
+  const progBtn = document.getElementById('simulate-progress-btn');
+
+  if (progBar && progBtn && progHint) {
+    if (isCancelled) {
+      progBar.style.display = 'none';
+    } else if (isDelivered) {
+      progBar.style.display = 'flex';
+      progHint.textContent = '✓ Order is safely delivered. Package journey completed.';
+      progBtn.style.display = 'none';
+    } else {
+      progBar.style.display = 'flex';
+      progBtn.style.display = 'inline-flex';
+      const nextSequence = {
+        'Placed': 'Shipped',
+        'Confirmed': 'Shipped',
+        'Shipped': 'Out for Delivery',
+        'Out for Delivery': 'Delivered'
+      };
+      const nextTarget = nextSequence[normStatus] || 'Next Stage';
+      progHint.textContent = `Current status: ${normStatus}. Advance to ${nextTarget}.`;
+      progBtn.innerHTML = `<span>Simulate: Advance to ${nextTarget} ➔</span>`;
+    }
+  }
+
   // Items list
-  document.getElementById('detail-order-items').innerHTML = order.items.map(item => `
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <div style="width: 40px; height: 40px; border-radius: 6px; overflow: hidden; background: var(--bg-primary); border: 1px solid var(--border-color);">
-          <img src="${item.image}" alt="${escapeHtml(item.name)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="handleImageError(this)">
-        </div>
-        <div>
-          <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">
-            ${escapeHtml(item.name)}${item.selectedVariant ? ` — Size: ${escapeHtml(item.selectedVariant)}` : ''}
+  const itemsContainer = document.getElementById('detail-order-items');
+  if (itemsContainer) {
+    itemsContainer.innerHTML = order.items.map(item => `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 40px; height: 40px; border-radius: 6px; overflow: hidden; background: var(--bg-primary); border: 1px solid var(--border-color);">
+            <img src="${item.image}" alt="${escapeHtml(item.name)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="handleImageError(this)">
           </div>
-          <div style="font-size: 12px; color: var(--text-secondary);">Qty: ${item.quantity} × ₹${item.price.toFixed(2)}</div>
+          <div>
+            <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">
+              ${escapeHtml(item.name)}${item.selectedVariant ? ` — Size: ${escapeHtml(item.selectedVariant)}` : ''}
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Qty: ${item.quantity} × ₹${item.price.toFixed(2)}</div>
+          </div>
         </div>
+        <div style="font-weight: 600; font-size: 14px; color: var(--accent-color);">₹${(item.price * item.quantity).toFixed(2)}</div>
       </div>
-      <div style="font-weight: 600; font-size: 14px; color: var(--accent-color);">₹${(item.price * item.quantity).toFixed(2)}</div>
-    </div>
-  `).join('');
+    `).join('');
+  }
 
   // Address & Payment
   const c = order.customer || {};
-  document.getElementById('detail-order-address').innerHTML = `
-    <strong>${c.name || 'Recipient'}</strong><br>
-    ${c.address || 'Address on file'}<br>
-    ${c.city || ''}, ${c.state || ''} - ${c.pincode || ''}<br>
-    Phone: ${c.phone || 'N/A'}
-  `;
+  const addressEl = document.getElementById('detail-order-address');
+  if (addressEl) {
+    addressEl.innerHTML = `
+      <strong>${escapeHtml(c.name || 'Recipient')}</strong><br>
+      ${escapeHtml(c.address || 'Address on file')}<br>
+      ${escapeHtml(c.city || '')}, ${escapeHtml(c.state || '')} - ${escapeHtml(c.pincode || '')}<br>
+      Phone: ${escapeHtml(c.phone || 'N/A')}
+    `;
+  }
 
-  document.getElementById('detail-order-payment').innerHTML = `
-    <strong>${order.payment ? order.payment.method : 'Card'}</strong><br>
-    ${order.payment ? order.payment.details : ''}<br>
-    Status: Paid (Simulated)
-  `;
+  const paymentEl = document.getElementById('detail-order-payment');
+  if (paymentEl) {
+    paymentEl.innerHTML = `
+      <strong>${order.payment ? order.payment.method : 'Card'}</strong><br>
+      Status: ${isDelivered ? 'Paid (Completed)' : (order.payment?.method === 'COD' ? 'Pending COD' : 'Paid (Completed)')}<br>
+      Carrier: ${escapeHtml(order.carrier || 'Express Logistics')}
+    `;
+  }
 
   // Totals
-  document.getElementById('detail-order-subtotal').textContent = `₹${order.subtotal.toFixed(2)}`;
-  document.getElementById('detail-order-total').textContent = `₹${order.total.toFixed(2)}`;
+  const subtotalEl = document.getElementById('detail-order-subtotal');
+  if (subtotalEl) subtotalEl.textContent = `₹${order.subtotal.toFixed(2)}`;
+  const totalEl = document.getElementById('detail-order-total');
+  if (totalEl) totalEl.textContent = `₹${order.total.toFixed(2)}`;
 
   const discountRow = document.getElementById('detail-order-discount-row');
-  if (order.discount > 0) {
-    discountRow.style.display = 'flex';
-    document.getElementById('detail-order-discount').textContent = `-₹${order.discount.toFixed(2)} (${order.couponCode || 'PROMO'})`;
-  } else {
-    discountRow.style.display = 'none';
+  if (discountRow) {
+    if (order.discount > 0) {
+      discountRow.style.display = 'flex';
+      const discountEl = document.getElementById('detail-order-discount');
+      if (discountEl) discountEl.textContent = `-₹${order.discount.toFixed(2)} (${order.couponCode || 'PROMO'})`;
+    } else {
+      discountRow.style.display = 'none';
+    }
   }
 
   document.getElementById('order-detail-modal').style.display = 'flex';
+
+  // Live Sync with Backend Tracking
+  if (authToken) {
+    apiRequest(`/orders/${orderId}/tracking`).then(data => {
+      if (data && data.success && data.tracking) {
+        const tr = data.tracking;
+        order.carrier = tr.carrier;
+        order.trackingNumber = tr.trackingNumber;
+        order.estimatedDeliveryDate = tr.estimatedDeliveryDate;
+        order.trackingHistory = tr.trackingHistory;
+        order.orderStatus = tr.orderStatus;
+        order.status = tr.orderStatus === 'Placed' ? 'Order Placed' : tr.orderStatus;
+        saveOrders();
+
+        if (currentViewingOrderId === orderId && document.getElementById('order-detail-modal').style.display === 'flex') {
+          if (carrierEl) carrierEl.textContent = tr.carrier;
+          if (awbEl) awbEl.textContent = tr.trackingNumber;
+          if (badge) {
+            badge.textContent = tr.orderStatus;
+            const cColor = getStatusColor(tr.orderStatus);
+            badge.style.background = cColor + '20';
+            badge.style.color = cColor;
+          }
+          if (tr.orderStatus === 'Delivered' && tr.deliveredAt) {
+            if (deliveryTitle) deliveryTitle.textContent = 'Delivered:';
+            if (deliveryDateEl) deliveryDateEl.textContent = new Date(tr.deliveredAt).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) + ' (Handed to resident)';
+          }
+
+          // Update milestone timestamps
+          if (Array.isArray(tr.milestones)) {
+            tr.milestones.forEach(m => {
+              const keyMap = { 'Placed': 'placed', 'Shipped': 'shipped', 'Out for Delivery': 'out-for-delivery', 'Delivered': 'delivered' };
+              const tEl = document.getElementById(`timestamp-${keyMap[m.stage]}`);
+              if (tEl && m.timestamp) {
+                tEl.textContent = new Date(m.timestamp).toLocaleDateString('en-IN', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+              }
+            });
+          }
+        }
+      }
+    }).catch(() => {});
+  }
+}
+
+async function handleSimulateProgress() {
+  if (!currentViewingOrderId) return;
+  const btn = document.getElementById('simulate-progress-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>Updating...</span>';
+  }
+
+  try {
+    if (authToken) {
+      const res = await apiRequest(`/orders/${currentViewingOrderId}/progress`, {
+        method: 'PUT'
+      });
+      if (res && res.success && res.order) {
+        const idx = orders.findIndex(o => o.id === currentViewingOrderId);
+        if (idx !== -1) {
+          orders[idx].orderStatus = res.order.orderStatus;
+          orders[idx].status = res.order.orderStatus === 'Placed' ? 'Order Placed' : res.order.orderStatus;
+          orders[idx].trackingHistory = res.order.trackingHistory;
+          saveOrders();
+        }
+        showToast(`🚚 Order progressed to ${res.order.orderStatus}!`);
+        viewOrderDetails(currentViewingOrderId);
+        renderOrders();
+        return;
+      }
+    }
+
+    // Local fallback if unauthenticated or offline
+    const order = orders.find(o => o.id === currentViewingOrderId);
+    if (order) {
+      const sequence = {
+        'Placed': 'Shipped',
+        'Order Placed': 'Shipped',
+        'Confirmed': 'Shipped',
+        'Shipped': 'Out for Delivery',
+        'Out for Delivery': 'Delivered'
+      };
+      const cur = order.orderStatus || order.status;
+      const next = sequence[cur];
+      if (next) {
+        order.status = next;
+        order.orderStatus = next;
+        if (!order.trackingHistory) order.trackingHistory = [];
+        order.trackingHistory.push({
+          status: next,
+          timestamp: new Date().toISOString(),
+          description: `Order advanced to ${next}.`,
+          location: next === 'Shipped' ? 'Regional Sorting Hub' : (next === 'Out for Delivery' ? 'Local Delivery Hub' : 'Customer Destination')
+        });
+        saveOrders();
+        showToast(`🚚 Order progressed to ${next}!`);
+        viewOrderDetails(currentViewingOrderId);
+        renderOrders();
+      }
+    }
+  } catch (err) {
+    showToast(err.message || 'Failed to progress order status', true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function openInvoiceModal(orderId) {
+  if (!orderId) orderId = currentViewingOrderId;
+  if (!orderId) return;
+
+  let invoiceData = null;
+
+  if (authToken) {
+    try {
+      const res = await apiRequest(`/orders/${orderId}/invoice`);
+      if (res && res.success && res.invoice) {
+        invoiceData = res.invoice;
+      }
+    } catch (err) {
+      console.warn('[Invoice API notice]:', err.message);
+    }
+  }
+
+  // Fallback to local order data if invoice API not available
+  if (!invoiceData) {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+    const subtotal = Number(order.subtotal) || 0;
+    const discount = Number(order.discount) || 0;
+    const total = Number(order.total) || 0;
+    invoiceData = {
+      invoiceNumber: `INV-${order.id}`,
+      orderId: order.id,
+      orderDate: order.date || new Date(),
+      orderStatus: order.orderStatus || order.status || 'Placed',
+      storeName: 'Shop Express',
+      seller: {
+        name: 'Shop Express Retail Private Limited',
+        gstin: '29AABCU9603R1ZM',
+        address: 'Plot 14, Outer Ring Road, Bengaluru, Karnataka - 560103',
+        email: 'support@shopexpress.in'
+      },
+      customer: {
+        name: order.customer?.name || 'Valued Customer',
+        email: order.customer?.email || '',
+        phone: order.customer?.phone || 'N/A'
+      },
+      shippingAddress: {
+        fullName: order.customer?.name || '',
+        street: order.customer?.address || '',
+        city: order.customer?.city || '',
+        state: order.customer?.state || '',
+        pincode: order.customer?.pincode || ''
+      },
+      items: (order.items || []).map(i => ({
+        productId: i.id,
+        name: i.name,
+        quantity: i.quantity,
+        price: i.price,
+        selectedVariant: i.selectedVariant || null,
+        itemSubtotal: Number((i.price * i.quantity).toFixed(2))
+      })),
+      pricing: {
+        subtotal,
+        discount,
+        couponCode: order.couponCode || null,
+        taxRate: '18% GST (Included)',
+        taxAmount: Number(((subtotal * 0.18) / 1.18).toFixed(2)),
+        shipping: 0,
+        total
+      },
+      payment: {
+        method: (order.payment?.method || 'CARD').toUpperCase(),
+        status: order.orderStatus === 'Delivered' ? 'Completed' : (order.payment?.status || 'Completed')
+      },
+      tracking: {
+        carrier: order.carrier || 'Express Logistics',
+        trackingNumber: order.trackingNumber || `EXP-TRK-${String(order.id).replace(/^ORD-/, '')}`,
+        estimatedDeliveryDate: order.estimatedDeliveryDate || null
+      }
+    };
+  }
+
+  // Populate Invoice Modal DOM
+  document.getElementById('invoice-number-display').textContent = invoiceData.invoiceNumber;
+  document.getElementById('invoice-date-display').textContent = `Date: ${new Date(invoiceData.orderDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+  const statusBadge = document.getElementById('invoice-status-badge');
+  if (statusBadge) {
+    statusBadge.textContent = invoiceData.orderStatus;
+    const sc = getStatusColor(invoiceData.orderStatus);
+    statusBadge.style.background = sc + '20';
+    statusBadge.style.color = sc;
+    statusBadge.style.border = `1px solid ${sc}40`;
+  }
+
+  document.getElementById('invoice-customer-name').textContent = invoiceData.customer.name;
+  const sAddr = invoiceData.shippingAddress;
+  document.getElementById('invoice-customer-address').innerHTML = sAddr
+    ? `${escapeHtml(sAddr.street || '')}, ${escapeHtml(sAddr.city || '')}, ${escapeHtml(sAddr.state || '')} - ${escapeHtml(sAddr.pincode || '')}`
+    : 'Address on file';
+  document.getElementById('invoice-customer-contact').textContent = `Phone: ${invoiceData.customer.phone} • Email: ${invoiceData.customer.email}`;
+
+  document.getElementById('invoice-payment-method').textContent = invoiceData.payment.method;
+  document.getElementById('invoice-payment-status').textContent = invoiceData.payment.status;
+  document.getElementById('invoice-carrier-name').textContent = invoiceData.tracking.carrier;
+  document.getElementById('invoice-tracking-code').textContent = invoiceData.tracking.trackingNumber;
+
+  // Table rows
+  const tbody = document.getElementById('invoice-items-tbody');
+  tbody.innerHTML = invoiceData.items.map(it => `
+    <tr style="border-bottom: 1px solid var(--border-color);">
+      <td style="padding: 10px 14px;">
+        <div style="font-weight: 600; color: var(--text-primary);">${escapeHtml(it.name)}</div>
+        ${it.selectedVariant ? `<div style="font-size: 11px; color: var(--accent-color); font-weight: 600;">Size: ${escapeHtml(it.selectedVariant)}</div>` : ''}
+      </td>
+      <td style="padding: 10px 14px; text-align: center; color: var(--text-primary);">${it.quantity}</td>
+      <td style="padding: 10px 14px; text-align: right; color: var(--text-primary);">₹${it.price.toFixed(2)}</td>
+      <td style="padding: 10px 14px; text-align: right; font-weight: 600; color: var(--text-primary);">₹${(it.price * it.quantity).toFixed(2)}</td>
+    </tr>
+  `).join('');
+
+  // Totals
+  document.getElementById('invoice-subtotal-val').textContent = `₹${invoiceData.pricing.subtotal.toFixed(2)}`;
+  const discRow = document.getElementById('invoice-discount-row');
+  if (invoiceData.pricing.discount > 0) {
+    discRow.style.display = 'flex';
+    document.getElementById('invoice-discount-val').textContent = `-₹${invoiceData.pricing.discount.toFixed(2)} (${invoiceData.pricing.couponCode || 'PROMO'})`;
+  } else {
+    discRow.style.display = 'none';
+  }
+  document.getElementById('invoice-tax-val').textContent = `₹${invoiceData.pricing.taxAmount.toFixed(2)}`;
+  document.getElementById('invoice-shipping-val').textContent = invoiceData.pricing.shipping > 0 ? `₹${invoiceData.pricing.shipping.toFixed(2)}` : 'FREE';
+  document.getElementById('invoice-grand-total').textContent = `₹${invoiceData.pricing.total.toFixed(2)}`;
+
+  document.getElementById('invoice-modal').style.display = 'flex';
+}
+
+function closeInvoiceModal() {
+  const modal = document.getElementById('invoice-modal');
+  if (modal) modal.style.display = 'none';
 }
 
 document.getElementById('close-order-modal').addEventListener('click', function() {
@@ -3347,6 +3741,13 @@ document.getElementById('detail-close-btn').addEventListener('click', function()
 document.getElementById('order-detail-modal').addEventListener('click', function(e) {
   if (e.target === this) document.getElementById('order-detail-modal').style.display = 'none';
 });
+
+const invoiceModalOverlay = document.getElementById('invoice-modal');
+if (invoiceModalOverlay) {
+  invoiceModalOverlay.addEventListener('click', function(e) {
+    if (e.target === this) closeInvoiceModal();
+  });
+}
 
 // Helper to escape HTML in attributes
 function escapeHtml(str) {
@@ -3629,12 +4030,16 @@ async function syncUserOrdersFromBackend() {
           id: o.orderId,
           date: o.createdAt,
           status: o.orderStatus === 'Placed' ? 'Order Placed' : o.orderStatus,
+          orderStatus: o.orderStatus,
+          carrier: o.carrier || 'Express Logistics',
+          trackingNumber: o.trackingNumber || ('EXP-TRK-' + o.orderId.replace(/^ORD-/, '')),
+          estimatedDeliveryDate: o.estimatedDeliveryDate || null,
           items: (o.items || []).map(it => ({
             id: it.productId,
             name: it.name,
             price: it.price,
             quantity: it.quantity,
-            selectedVariant: it.selectedVariant,
+            selectedVariant: it.selectedVariant || it.size || null,
             image: it.image
           })),
           subtotal: o.subtotal,
@@ -4532,6 +4937,10 @@ window.updateFilterChips = updateFilterChips;
 window.removeFilterChip = removeFilterChip;
 window.resetFilters = resetFilters;
 window.resetAllFiltersAndSearch = resetAllFiltersAndSearch;
+window.viewOrderDetails = viewOrderDetails;
+window.handleSimulateProgress = handleSimulateProgress;
+window.openInvoiceModal = openInvoiceModal;
+window.closeInvoiceModal = closeInvoiceModal;
 
 // Initialization
 loadAllState();

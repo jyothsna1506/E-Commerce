@@ -767,24 +767,50 @@
      </div>
     </div>
 
+    <!-- Delivery Estimate & Carrier Banner -->
+    <div id="detail-delivery-banner" style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+      <div>
+        <span style="font-size: 13px; font-weight: 700; color: var(--accent-color);" id="detail-delivery-title">Estimated Delivery:</span>
+        <span style="font-size: 13px; color: var(--text-primary); margin-left: 4px; font-weight: 600;" id="detail-delivery-date">—</span>
+      </div>
+      <div style="font-size: 12px; color: var(--text-secondary);" id="detail-carrier-info">
+        Carrier: <span id="detail-carrier-name" style="font-weight: 600;">Express Logistics</span> • Tracking: <span id="detail-awb-number" style="font-weight: 600;">—</span>
+      </div>
+    </div>
+
     <!-- Visual Tracking Bar -->
     <div id="detail-order-tracking" class="order-tracker">
      <div class="tracker-step" id="step-placed">
       <div class="tracker-dot">✓</div>
-      <div class="tracker-label">Placed</div>
-     </div>
-     <div class="tracker-step" id="step-confirmed">
-      <div class="tracker-dot">2</div>
-      <div class="tracker-label">Confirmed</div>
+      <div class="tracker-label">Order Placed</div>
+      <div class="tracker-timestamp" id="timestamp-placed"></div>
      </div>
      <div class="tracker-step" id="step-shipped">
-      <div class="tracker-dot">3</div>
+      <div class="tracker-dot">2</div>
       <div class="tracker-label">Shipped</div>
+      <div class="tracker-timestamp" id="timestamp-shipped"></div>
+     </div>
+     <div class="tracker-step" id="step-out-for-delivery">
+      <div class="tracker-dot">3</div>
+      <div class="tracker-label">Out for Delivery</div>
+      <div class="tracker-timestamp" id="timestamp-out-for-delivery"></div>
      </div>
      <div class="tracker-step" id="step-delivered">
       <div class="tracker-dot">4</div>
       <div class="tracker-label">Delivered</div>
+      <div class="tracker-timestamp" id="timestamp-delivered"></div>
      </div>
+    </div>
+
+    <!-- Live Status Progression Simulation -->
+    <div id="detail-progression-bar" style="margin: 18px 0 20px 0; padding: 12px 16px; background: rgba(52, 152, 219, 0.08); border: 1px dashed #3498db; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);">🚚 Status Progression Simulation:</span>
+        <span id="detail-progression-hint" style="font-size: 12px; color: var(--text-secondary); margin-left: 6px;">Advance this order along the delivery lifecycle.</span>
+      </div>
+      <button id="simulate-progress-btn" onclick="handleSimulateProgress()" style="background: #3498db; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+        <span>Simulate Next Stage →</span>
+      </button>
     </div>
 
     <!-- Items -->
@@ -822,8 +848,100 @@
     </div>
 
     <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
-     <button onclick="window.print()" style="background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 10px 18px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">🖨 Print Invoice</button>
+     <button id="detail-open-invoice-btn" onclick="openInvoiceModal(currentViewingOrderId)" style="background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 10px 18px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">📄 View &amp; Print Invoice</button>
      <button id="detail-close-btn" style="background: var(--accent-color); color: white; border: none; padding: 10px 22px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">Done</button>
+    </div>
+   </div>
+  </div>
+
+  <!-- Full Tax Invoice Modal -->
+  <div id="invoice-modal" class="modal-overlay" style="display: none; z-index: 1050;">
+   <div class="modal-box" style="max-width: 760px; padding: 32px; background: var(--bg-secondary); border: 1px solid var(--border-color); position: relative; max-height: 90vh; overflow-y: auto;">
+    <button onclick="closeInvoiceModal()" class="no-print" style="position: absolute; top: 16px; right: 16px; background: transparent; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">✕</button>
+
+    <!-- Invoice Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+     <div>
+      <h2 style="font-size: 26px; font-weight: 800; color: var(--accent-color); margin: 0;">Shop Express</h2>
+      <p style="margin: 4px 0 0 0; font-size: 12px; color: var(--text-secondary);">Shop Express Retail Private Limited</p>
+      <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-secondary);">GSTIN: 29AABCU9603R1ZM • Plot 14, Outer Ring Road, Bengaluru</p>
+      <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-secondary);">Tax Invoice / Official Purchase Receipt</p>
+     </div>
+     <div style="text-align: right;">
+      <div style="font-size: 20px; font-weight: 700; color: var(--text-primary); text-transform: uppercase;">TAX INVOICE</div>
+      <div id="invoice-number-display" style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-top: 4px;">INV-ORD-00000</div>
+      <div id="invoice-date-display" style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Date: —</div>
+      <div id="invoice-status-badge" style="display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 700;">Status: —</div>
+     </div>
+    </div>
+
+    <!-- Customer & Logistics Summary -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: var(--bg-primary); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+     <div>
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 4px;">Billed &amp; Shipped To</div>
+      <div id="invoice-customer-name" style="font-size: 14px; font-weight: 700; color: var(--text-primary);">Customer Name</div>
+      <div id="invoice-customer-address" style="font-size: 13px; color: var(--text-secondary); line-height: 1.4; margin-top: 2px;">Address</div>
+      <div id="invoice-customer-contact" style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Phone / Email</div>
+     </div>
+     <div>
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 4px;">Payment &amp; Logistics</div>
+      <div style="font-size: 13px; color: var(--text-primary);"><strong>Payment Method:</strong> <span id="invoice-payment-method">CARD</span></div>
+      <div style="font-size: 13px; color: var(--text-primary); margin-top: 2px;"><strong>Payment Status:</strong> <span id="invoice-payment-status">Completed</span></div>
+      <div style="font-size: 13px; color: var(--text-primary); margin-top: 2px;"><strong>Carrier:</strong> <span id="invoice-carrier-name">Express Logistics</span></div>
+      <div style="font-size: 13px; color: var(--text-primary); margin-top: 2px;"><strong>AWB / Tracking:</strong> <span id="invoice-tracking-code">—</span></div>
+     </div>
+    </div>
+
+    <!-- Items Table -->
+    <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+     <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+      <thead style="background: var(--bg-primary); border-bottom: 1px solid var(--border-color);">
+       <tr>
+        <th style="padding: 10px 14px; font-weight: 700; color: var(--text-secondary);">Item Description</th>
+        <th style="padding: 10px 14px; font-weight: 700; color: var(--text-secondary); text-align: center;">Qty</th>
+        <th style="padding: 10px 14px; font-weight: 700; color: var(--text-secondary); text-align: right;">Unit Price</th>
+        <th style="padding: 10px 14px; font-weight: 700; color: var(--text-secondary); text-align: right;">Total</th>
+       </tr>
+      </thead>
+      <tbody id="invoice-items-tbody">
+       <!-- Populated dynamically -->
+      </tbody>
+     </table>
+    </div>
+
+    <!-- Totals -->
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+     <div style="width: 300px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
+       <span style="color: var(--text-secondary);">Subtotal:</span>
+       <span id="invoice-subtotal-val" style="font-weight: 600; color: var(--text-primary);">₹0.00</span>
+      </div>
+      <div id="invoice-discount-row" style="display: none; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: #27ae60;">
+       <span>Coupon Discount:</span>
+       <span id="invoice-discount-val" style="font-weight: 600;">-₹0.00</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
+       <span style="color: var(--text-secondary);">Estimated Tax (18% GST):</span>
+       <span id="invoice-tax-val" style="color: var(--text-secondary);">₹0.00</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
+       <span style="color: var(--text-secondary);">Shipping:</span>
+       <span id="invoice-shipping-val" style="color: var(--text-secondary);">FREE</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 800; padding-top: 10px; border-top: 2px solid var(--border-color); color: var(--text-primary);">
+       <span>Total Paid:</span>
+       <span id="invoice-grand-total" style="color: var(--accent-color);">₹0.00</span>
+      </div>
+     </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 16px; font-size: 12px; color: var(--text-secondary);">
+     <div>This is a computer-generated tax invoice verified by Shop Express.</div>
+     <div class="no-print" style="display: flex; gap: 10px;">
+      <button onclick="window.print()" style="background: var(--accent-color); color: white; border: none; padding: 9px 18px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">🖨 Print Invoice</button>
+      <button onclick="closeInvoiceModal()" style="background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 9px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">Close</button>
+     </div>
     </div>
    </div>
   </div>

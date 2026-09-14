@@ -47,7 +47,9 @@ The Express server acts as both the static file host (serving the SPA from `/fro
 - **Persistent Shopping Cart & Wishlist**: Real-time quantity adjustments, stock availability enforcement, item removal, and subtotal calculation.
 - **Coupon Discount System**: Validates promo codes (e.g., `SAVE10` for 10% off, `SAVE20` for 20% off, `SHOPEXPRESS` for 15% off) with dynamic discount recalculation.
 - **Simulated Checkout & Payment Flow**: Multi-method checkout supporting Credit/Debit Cards, UPI apps (Google Pay, PhonePe, Paytm, BHIM), and Cash on Delivery (COD) with shipping address auto-save.
-- **Order Lifecycle & Tracking**: Real-time order status tracking (`Processing` ➔ `Shipped` ➔ `Out for Delivery` ➔ `Delivered`) with user-isolated order cancellation.
+- **Dynamic Order Tracking & Delivery Estimation**: Real-time 4-stage tracking lifecycle (`Placed` ➔ `Shipped` ➔ `Out for Delivery` ➔ `Delivered`) backed by `GET /api/orders/:id/tracking`, sequential transition simulation (`PUT /api/orders/:id/progress`), persistent deterministic delivery dates, carrier logistics metadata, and transition timestamps.
+- **Tax Invoice & Receipt Generation**: Complete customer invoices (`GET /api/orders/:id/invoice`) with GST breakdown, itemized line totals, discounts, shipping, seller GSTIN information, and clean, print-optimized stylesheet (`window.print()`).
+- **Strict Order Ownership & Security Protection**: Orders, tracking events, and invoices are strictly isolated per user account. Cross-user access (e.g. User B requesting User A's tracking or invoice) is strictly blocked with `403 Forbidden`.
 - **Dark / Light Theme Toggle**: Persistent user theme preference stored in localStorage.
 - **Explainable Recommendations**: Rule-based scoring engine suggesting products based on category affinity, user preferences, and item ratings.
 
@@ -99,7 +101,7 @@ E-Commerce-main/
 ├── .env.example           # Template for environment variables
 ├── .gitignore             # Git ignore configuration
 ├── package.json           # Project manifest & npm scripts
-├── test_backend.js        # Automated backend integration test suite (42 tests)
+├── test_backend.js        # Automated backend integration test suite (49 tests)
 └── README.md              # Project documentation
 ```
 
@@ -210,7 +212,7 @@ npm run seed
 ```
 
 ### 6. Run Automated Tests
-Execute the comprehensive integration test suite (42 tests covering health, auth, catalog, filters, reviews, cart, wishlist, orders, and security permissions):
+Execute the comprehensive integration test suite (49 tests covering health, auth, catalog, filters, reviews, cart, wishlist, orders, dynamic tracking, delivery estimates, invoice data, and security permissions):
 ```bash
 npm test
 ```
