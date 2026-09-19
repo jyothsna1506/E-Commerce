@@ -2749,26 +2749,15 @@ function showPayment() {
   document.getElementById('recently-viewed-section').style.display = 'none';
   renderPaymentSummary();
 
-  // Auto-fill checkout fields if user is authenticated
-  if (currentUser) {
-    const nameInput = document.getElementById('checkout-name');
-    const emailInput = document.getElementById('checkout-email');
-    const phoneInput = document.getElementById('checkout-phone');
-    if (nameInput && !nameInput.value && currentUser.name) nameInput.value = currentUser.name;
-    if (emailInput && !emailInput.value && currentUser.email) emailInput.value = currentUser.email;
-    if (phoneInput && !phoneInput.value && currentUser.phone) phoneInput.value = currentUser.phone;
-
-    if (currentUser.addresses && currentUser.addresses.length > 0) {
-      const defAddr = currentUser.addresses.find(a => a.isDefault) || currentUser.addresses[0];
-      const addrInput = document.getElementById('checkout-address');
-      const cityInput = document.getElementById('checkout-city');
-      const stateInput = document.getElementById('checkout-state');
-      const pinInput = document.getElementById('checkout-pincode');
-      if (addrInput && !addrInput.value && defAddr.street) addrInput.value = defAddr.street;
-      if (cityInput && !cityInput.value && defAddr.city) cityInput.value = defAddr.city;
-      if (stateInput && !stateInput.value && defAddr.state) stateInput.value = defAddr.state;
-      if (pinInput && !pinInput.value && defAddr.pincode) pinInput.value = defAddr.pincode;
-    }
+  // Multi-address selection & Auto-fill
+  if (typeof loadUserAddresses === 'function') {
+    loadUserAddresses().then(() => {
+      if (typeof renderCheckoutAddressSelector === 'function') {
+        renderCheckoutAddressSelector();
+      }
+    });
+  } else if (typeof renderCheckoutAddressSelector === 'function') {
+    renderCheckoutAddressSelector();
   }
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -3091,6 +3080,26 @@ function processOrderPayment(paymentMethodInfo, shippingAddress) {
 
     if (typeof syncOrderWithBackend === 'function') {
       syncOrderWithBackend(newOrder, shippingAddress, selectedPaymentMethod);
+    }
+
+    // Save manual address to user's address book if requested
+    if (authToken && document.getElementById('save-address-checkbox')?.checked && selectedCheckoutAddressId === 'manual') {
+      apiRequest('/users/addresses', {
+        method: 'POST',
+        body: JSON.stringify({
+          label: 'Home',
+          fullName: shippingAddress.name,
+          phone: shippingAddress.phone,
+          addressLine1: shippingAddress.address,
+          city: shippingAddress.city,
+          state: shippingAddress.state,
+          postalCode: shippingAddress.pincode,
+          country: 'India',
+          isDefault: false
+        })
+      }).then(() => {
+        loadUserAddresses();
+      }).catch(() => {});
     }
 
     // Clear cart and state
@@ -3765,8 +3774,17 @@ window.addEventListener('keydown', function(e) {
     if (authM) authM.style.display = 'none';
     const profM = document.getElementById('profile-modal');
     if (profM) profM.style.display = 'none';
+    const addrM = document.getElementById('address-modal');
+    if (addrM) addrM.style.display = 'none';
   }
 });
+
+const addressModalOverlay = document.getElementById('address-modal');
+if (addressModalOverlay) {
+  addressModalOverlay.addEventListener('click', function(e) {
+    if (e.target === this) closeAddressModal();
+  });
+}
 
 // Config change hook preservation
 async function onConfigChange(config) {
@@ -3849,6 +3867,11 @@ async function restoreAuthSession() {
         await syncUserOrdersFromBackend();
       }
 
+      // Restore addresses from backend
+      if (typeof loadUserAddresses === 'function') {
+        loadUserAddresses();
+      }
+
       // Refresh personalized recommendations
       fetchAndRenderRecommendations();
     }
@@ -3858,6 +3881,9 @@ async function restoreAuthSession() {
       if (cached) {
         currentUser = JSON.parse(cached);
         updateAuthUI(currentUser);
+        if (typeof loadUserAddresses === 'function') {
+          loadUserAddresses();
+        }
       }
     } catch (_) {}
   }
@@ -4246,6 +4272,9 @@ async function submitGoogleLogin(name, email) {
         await syncUserOrdersFromBackend();
       }
       fetchAndRenderRecommendations();
+      if (typeof loadUserAddresses === 'function') {
+        loadUserAddresses();
+      }
 
       if (pendingAuthAction) {
         executePendingAction();
@@ -4426,6 +4455,9 @@ async function handleSignIn(identifier, password, source = 'modal') {
         await syncUserOrdersFromBackend();
       }
       fetchAndRenderRecommendations();
+      if (typeof loadUserAddresses === 'function') {
+        loadUserAddresses();
+      }
 
       if (pendingAuthAction) {
         executePendingAction();
@@ -4492,6 +4524,9 @@ async function handleSignUp(name, email, password, confirmPassword, phone, prefe
 
       showToast(`Account created! Welcome to Shop Express, ${currentUser.name}! 🎉`);
       fetchAndRenderRecommendations();
+      if (typeof loadUserAddresses === 'function') {
+        loadUserAddresses();
+      }
 
       if (pendingAuthAction) {
         executePendingAction();
@@ -4531,6 +4566,9 @@ function logoutUser(notify = true) {
   updateCartCount();
   updateWishlistCount();
 
+  savedAddresses = [];
+  selectedCheckoutAddressId = null;
+
   const profModal = document.getElementById('profile-modal');
   if (profModal) profModal.style.display = 'none';
   const authModal = document.getElementById('auth-modal');
@@ -4539,6 +4577,8 @@ function logoutUser(notify = true) {
   if (googleModal) googleModal.style.display = 'none';
   const phoneModal = document.getElementById('phone-otp-modal');
   if (phoneModal) phoneModal.style.display = 'none';
+  const addrModal = document.getElementById('address-modal');
+  if (addrModal) addrModal.style.display = 'none';
 
   showWelcomeScreen();
 
@@ -4585,6 +4625,471 @@ async function handleSavePreferences(e) {
     showToast('Failed to save preferences: ' + err.message, true);
   } finally {
     if (saveBtn) saveBtn.textContent = 'Save Preferences';
+  }
+}
+
+// ==========================================
+// SAVED ADDRESS BOOK & CHECKOUT SELECTION
+// ==========================================
+
+let savedAddresses = [];
+let selectedCheckoutAddressId = null;
+let addressModalContext = 'profile'; // 'profile' or 'checkout'
+
+function switchProfileTab(tab) {
+  const prefTabBtn = document.getElementById('tab-btn-pref');
+  const addrTabBtn = document.getElementById('tab-btn-addr');
+  const prefContent = document.getElementById('profile-pref-tab-content');
+  const addrContent = document.getElementById('profile-addr-tab-content');
+
+  if (tab === 'addresses') {
+    if (prefTabBtn) prefTabBtn.classList.remove('active');
+    if (addrTabBtn) addrTabBtn.classList.add('active');
+    if (prefContent) prefContent.style.display = 'none';
+    if (addrContent) addrContent.style.display = 'block';
+    loadUserAddresses();
+  } else {
+    if (addrTabBtn) addrTabBtn.classList.remove('active');
+    if (prefTabBtn) prefTabBtn.classList.add('active');
+    if (prefContent) prefContent.style.display = 'block';
+    if (addrContent) addrContent.style.display = 'none';
+  }
+}
+
+async function loadUserAddresses() {
+  if (!authToken) {
+    savedAddresses = [];
+    updateAddressCountBadge();
+    return;
+  }
+  try {
+    const data = await apiRequest('/users/addresses');
+    if (data && data.success && Array.isArray(data.addresses)) {
+      savedAddresses = data.addresses;
+      updateAddressCountBadge();
+      renderProfileAddresses();
+      const paymentView = document.getElementById('payment-view');
+      if (paymentView && paymentView.style.display === 'block') {
+        renderCheckoutAddressSelector();
+      }
+    }
+  } catch (err) {
+    console.warn('[Address Book] Failed to load addresses:', err.message);
+  }
+}
+
+function updateAddressCountBadge() {
+  const countEl = document.getElementById('profile-address-count');
+  if (countEl) {
+    countEl.textContent = savedAddresses.length;
+  }
+}
+
+function renderProfileAddresses() {
+  const container = document.getElementById('profile-address-list');
+  if (!container) return;
+
+  if (savedAddresses.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 36px 16px; background: var(--bg-primary); border-radius: 10px; border: 1px dashed var(--border-color);">
+        <div style="font-size: 36px; margin-bottom: 8px;">📍</div>
+        <div style="font-weight: 600; font-size: 15px; color: var(--text-primary); margin-bottom: 4px;">No Saved Addresses</div>
+        <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 16px 0;">Add your delivery address to enjoy 1-click checkout selection.</p>
+        <button type="button" onclick="openAddressModal()" style="background: var(--accent-color); color: white; border: none; padding: 9px 18px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer;">+ Add Your First Address</button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = savedAddresses.map(addr => {
+    const isDefault = Boolean(addr.isDefault);
+    const labelBadgeClass = addr.label === 'Work' ? 'badge-work' : (addr.label === 'Other' ? 'badge-other' : 'badge-home');
+    const labelIcon = addr.label === 'Work' ? '🏢' : (addr.label === 'Other' ? '📍' : '🏠');
+    const addrId = addr.id || addr._id;
+
+    return `
+      <div class="saved-address-card ${isDefault ? 'default-address' : ''}" id="addr-card-${addrId}">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span class="address-type-badge ${labelBadgeClass}">${labelIcon} ${escapeHtml(addr.label || 'Home')}</span>
+            ${isDefault ? `<span class="badge-default">✓ Default</span>` : ''}
+          </div>
+          <div style="display: flex; gap: 6px;">
+            ${!isDefault ? `
+              <button type="button" class="address-action-btn default-btn" onclick="handleSetDefaultAddress('${addrId}')" title="Set as primary default address">
+                Set Default
+              </button>
+            ` : ''}
+            <button type="button" class="address-action-btn" onclick="openAddressModal('${addrId}', 'profile')" title="Edit address">
+              ✏ Edit
+            </button>
+            <button type="button" class="address-action-btn delete-btn" onclick="handleDeleteAddress('${addrId}')" title="Delete address">
+              🗑 Delete
+            </button>
+          </div>
+        </div>
+        <div style="font-weight: 700; font-size: 15px; color: var(--text-primary); margin-bottom: 4px;">
+          ${escapeHtml(addr.fullName)} <span style="font-weight: 500; font-size: 13px; color: var(--text-secondary); margin-left: 6px;">📞 ${escapeHtml(addr.phone)}</span>
+        </div>
+        <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+          ${escapeHtml(addr.addressLine1 || addr.street || '')}
+          ${addr.addressLine2 ? `<br>${escapeHtml(addr.addressLine2)}` : ''}
+          <br>${escapeHtml(addr.city)}, ${escapeHtml(addr.state)} - <strong>${escapeHtml(addr.postalCode || addr.pincode || '')}</strong>, ${escapeHtml(addr.country || 'India')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openAddressModal(addressId = null, context = 'profile') {
+  addressModalContext = context;
+  const modal = document.getElementById('address-modal');
+  if (!modal) return;
+
+  const idInput = document.getElementById('addr-modal-id');
+  const nameInput = document.getElementById('addr-modal-name');
+  const phoneInput = document.getElementById('addr-modal-phone');
+  const line1Input = document.getElementById('addr-modal-line1');
+  const line2Input = document.getElementById('addr-modal-line2');
+  const cityInput = document.getElementById('addr-modal-city');
+  const stateInput = document.getElementById('addr-modal-state');
+  const pinInput = document.getElementById('addr-modal-pincode');
+  const defCheckbox = document.getElementById('addr-modal-is-default');
+  const titleEl = document.getElementById('address-modal-title');
+  const submitBtn = document.getElementById('addr-modal-submit-btn');
+
+  if (addressId) {
+    const addr = savedAddresses.find(a => (a.id || a._id) === addressId);
+    if (addr) {
+      if (idInput) idInput.value = addressId;
+      if (titleEl) titleEl.innerHTML = `<span>✏</span> <span>Edit Delivery Address</span>`;
+      if (submitBtn) submitBtn.textContent = 'Update Address';
+
+      const labelRadios = document.querySelectorAll('input[name="addr-modal-label"]');
+      labelRadios.forEach(r => {
+        r.checked = r.value === (addr.label || 'Home');
+      });
+
+      if (nameInput) nameInput.value = addr.fullName || '';
+      if (phoneInput) phoneInput.value = addr.phone || '';
+      if (line1Input) line1Input.value = addr.addressLine1 || addr.street || '';
+      if (line2Input) line2Input.value = addr.addressLine2 || '';
+      if (cityInput) cityInput.value = addr.city || '';
+      if (stateInput) stateInput.value = addr.state || '';
+      if (pinInput) pinInput.value = addr.postalCode || addr.pincode || '';
+      if (defCheckbox) {
+        defCheckbox.checked = Boolean(addr.isDefault);
+        defCheckbox.disabled = Boolean(addr.isDefault && savedAddresses.length === 1);
+      }
+    }
+  } else {
+    if (idInput) idInput.value = '';
+    if (titleEl) titleEl.innerHTML = `<span>📍</span> <span>Add New Delivery Address</span>`;
+    if (submitBtn) submitBtn.textContent = 'Save Address';
+
+    const homeRadio = document.querySelector('input[name="addr-modal-label"][value="Home"]');
+    if (homeRadio) homeRadio.checked = true;
+
+    if (nameInput) nameInput.value = currentUser?.name || '';
+    if (phoneInput) phoneInput.value = currentUser?.phone || '';
+    if (line1Input) line1Input.value = '';
+    if (line2Input) line2Input.value = '';
+    if (cityInput) cityInput.value = '';
+    if (stateInput) stateInput.value = '';
+    if (pinInput) pinInput.value = '';
+    if (defCheckbox) {
+      defCheckbox.checked = savedAddresses.length === 0;
+      defCheckbox.disabled = savedAddresses.length === 0;
+    }
+  }
+
+  modal.style.display = 'flex';
+}
+
+function closeAddressModal() {
+  const modal = document.getElementById('address-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function handleAddressModalSubmit(e) {
+  e.preventDefault();
+  if (!authToken) {
+    showToast('Please sign in to manage addresses', true);
+    return;
+  }
+
+  const id = document.getElementById('addr-modal-id')?.value.trim();
+  const labelRadio = document.querySelector('input[name="addr-modal-label"]:checked');
+  const label = labelRadio ? labelRadio.value : 'Home';
+  const fullName = document.getElementById('addr-modal-name')?.value.trim();
+  const phone = document.getElementById('addr-modal-phone')?.value.trim();
+  const addressLine1 = document.getElementById('addr-modal-line1')?.value.trim();
+  const addressLine2 = document.getElementById('addr-modal-line2')?.value.trim();
+  const city = document.getElementById('addr-modal-city')?.value.trim();
+  const state = document.getElementById('addr-modal-state')?.value.trim();
+  const postalCode = document.getElementById('addr-modal-pincode')?.value.trim();
+  const isDefault = Boolean(document.getElementById('addr-modal-is-default')?.checked);
+
+  if (!fullName || fullName.length < 2) {
+    showToast('Please enter full name', true);
+    return;
+  }
+  if (!phone || !/^\d{10}$/.test(phone)) {
+    showToast('Please enter a valid 10-digit phone number', true);
+    return;
+  }
+  if (!addressLine1 || addressLine1.length < 5) {
+    showToast('Please enter street / flat address', true);
+    return;
+  }
+  if (!city) {
+    showToast('Please enter city', true);
+    return;
+  }
+  if (!state) {
+    showToast('Please enter state', true);
+    return;
+  }
+  if (!postalCode || !/^\d{6}$/.test(postalCode)) {
+    showToast('Please enter a valid 6-digit PIN code', true);
+    return;
+  }
+
+  const submitBtn = document.getElementById('addr-modal-submit-btn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+  }
+
+  try {
+    const payload = {
+      label,
+      fullName,
+      phone,
+      addressLine1,
+      addressLine2,
+      city,
+      state,
+      postalCode,
+      country: 'India',
+      isDefault,
+    };
+
+    let res;
+    if (id) {
+      res = await apiRequest(`/users/addresses/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      showToast('Address updated successfully! ✓');
+    } else {
+      res = await apiRequest('/users/addresses', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      showToast('New address saved to your address book! ✓');
+      if (res && res.address) {
+        selectedCheckoutAddressId = res.address.id || res.address._id;
+      }
+    }
+
+    if (res && res.addresses) {
+      savedAddresses = res.addresses;
+      updateAddressCountBadge();
+      renderProfileAddresses();
+      if (addressModalContext === 'checkout' || document.getElementById('payment-view').style.display === 'block') {
+        renderCheckoutAddressSelector();
+      }
+    } else {
+      await loadUserAddresses();
+    }
+
+    closeAddressModal();
+  } catch (err) {
+    showToast(err.message || 'Failed to save address', true);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = id ? 'Update Address' : 'Save Address';
+    }
+  }
+}
+
+async function handleDeleteAddress(addressId) {
+  if (!authToken || !addressId) return;
+  if (!confirm('Are you sure you want to remove this saved address?')) return;
+
+  try {
+    const res = await apiRequest(`/users/addresses/${addressId}`, {
+      method: 'DELETE',
+    });
+    showToast('Address removed from address book.');
+    if (res && res.addresses) {
+      savedAddresses = res.addresses;
+    } else {
+      await loadUserAddresses();
+    }
+    updateAddressCountBadge();
+    renderProfileAddresses();
+
+    if (selectedCheckoutAddressId === addressId) {
+      const remainingDefault = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
+      selectedCheckoutAddressId = remainingDefault ? (remainingDefault.id || remainingDefault._id) : 'manual';
+    }
+    const paymentView = document.getElementById('payment-view');
+    if (paymentView && paymentView.style.display === 'block') {
+      renderCheckoutAddressSelector();
+    }
+  } catch (err) {
+    showToast(err.message || 'Failed to delete address', true);
+  }
+}
+
+async function handleSetDefaultAddress(addressId) {
+  if (!authToken || !addressId) return;
+
+  try {
+    const res = await apiRequest(`/users/addresses/${addressId}/default`, {
+      method: 'PUT',
+    });
+    showToast('Default delivery address updated! ✓');
+    if (res && res.addresses) {
+      savedAddresses = res.addresses;
+    } else {
+      await loadUserAddresses();
+    }
+    renderProfileAddresses();
+
+    const paymentView = document.getElementById('payment-view');
+    if (paymentView && paymentView.style.display === 'block') {
+      selectedCheckoutAddressId = addressId;
+      renderCheckoutAddressSelector();
+    }
+  } catch (err) {
+    showToast(err.message || 'Failed to update default address', true);
+  }
+}
+
+function renderCheckoutAddressSelector() {
+  const container = document.getElementById('checkout-address-selector-container');
+  const grid = document.getElementById('checkout-addresses-grid');
+  if (!container || !grid) return;
+
+  if (!authToken || savedAddresses.length === 0) {
+    container.style.display = 'none';
+    if (currentUser) {
+      const nameInput = document.getElementById('checkout-name');
+      const emailInput = document.getElementById('checkout-email');
+      const phoneInput = document.getElementById('checkout-phone');
+      if (nameInput && !nameInput.value && currentUser.name) nameInput.value = currentUser.name;
+      if (emailInput && !emailInput.value && currentUser.email) emailInput.value = currentUser.email;
+      if (phoneInput && !phoneInput.value && currentUser.phone) phoneInput.value = currentUser.phone;
+    }
+    return;
+  }
+
+  container.style.display = 'block';
+
+  // Determine initial selection
+  if (!selectedCheckoutAddressId || (!savedAddresses.some(a => (a.id || a._id) === selectedCheckoutAddressId) && selectedCheckoutAddressId !== 'manual')) {
+    const def = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
+    selectedCheckoutAddressId = def ? (def.id || def._id) : 'manual';
+  }
+
+  let html = savedAddresses.map(addr => {
+    const aId = addr.id || addr._id;
+    const isSelected = selectedCheckoutAddressId === aId;
+    const isDefault = Boolean(addr.isDefault);
+    const labelBadgeClass = addr.label === 'Work' ? 'badge-work' : (addr.label === 'Other' ? 'badge-other' : 'badge-home');
+    const labelIcon = addr.label === 'Work' ? '🏢' : (addr.label === 'Other' ? '📍' : '🏠');
+
+    return `
+      <div class="checkout-address-card ${isSelected ? 'selected' : ''}" onclick="selectCheckoutAddress('${aId}')">
+        <input type="radio" name="checkout_address_choice" id="checkout-addr-${aId}" value="${aId}" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); selectCheckoutAddress('${aId}')">
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
+            <span class="address-type-badge ${labelBadgeClass}">${labelIcon} ${escapeHtml(addr.label || 'Home')}</span>
+            ${isDefault ? `<span class="badge-default">Default</span>` : ''}
+            <span style="font-weight: 700; font-size: 14px; color: var(--text-primary); margin-left: 4px;">${escapeHtml(addr.fullName)}</span>
+            <span style="font-size: 13px; color: var(--text-secondary);">(${escapeHtml(addr.phone)})</span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.4;">
+            ${escapeHtml(addr.addressLine1 || addr.street || '')}${addr.addressLine2 ? `, ${escapeHtml(addr.addressLine2)}` : ''}, ${escapeHtml(addr.city)}, ${escapeHtml(addr.state)} - <strong>${escapeHtml(addr.postalCode || addr.pincode || '')}</strong>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Add Manual Entry Option
+  const isManual = selectedCheckoutAddressId === 'manual';
+  html += `
+    <div class="checkout-address-card ${isManual ? 'selected' : ''}" onclick="selectCheckoutAddress('manual')">
+      <input type="radio" name="checkout_address_choice" id="checkout-addr-manual" value="manual" ${isManual ? 'checked' : ''} onclick="event.stopPropagation(); selectCheckoutAddress('manual')">
+      <div style="flex: 1;">
+        <div style="font-weight: 600; font-size: 14px; color: var(--text-primary); margin-bottom: 2px;">
+          ✍ Enter a different delivery address
+        </div>
+        <div style="font-size: 12px; color: var(--text-secondary);">
+          Type new recipient details in the form below
+        </div>
+      </div>
+    </div>
+  `;
+
+  grid.innerHTML = html;
+
+  // Apply chosen address data into form fields
+  selectCheckoutAddress(selectedCheckoutAddressId, false);
+}
+
+function selectCheckoutAddress(addressId, animate = true) {
+  selectedCheckoutAddressId = addressId;
+
+  // Update visually selected card
+  document.querySelectorAll('.checkout-address-card').forEach(card => {
+    card.classList.remove('selected');
+  });
+  const radio = document.querySelector(`input[name="checkout_address_choice"][value="${addressId}"]`);
+  if (radio) {
+    radio.checked = true;
+    const parentCard = radio.closest('.checkout-address-card');
+    if (parentCard) parentCard.classList.add('selected');
+  }
+
+  const nameInput = document.getElementById('checkout-name');
+  const emailInput = document.getElementById('checkout-email');
+  const phoneInput = document.getElementById('checkout-phone');
+  const addrInput = document.getElementById('checkout-address');
+  const cityInput = document.getElementById('checkout-city');
+  const stateInput = document.getElementById('checkout-state');
+  const pinInput = document.getElementById('checkout-pincode');
+  const saveCheckbox = document.getElementById('save-address-checkbox');
+
+  if (emailInput && currentUser && currentUser.email) {
+    emailInput.value = currentUser.email;
+  }
+
+  if (addressId === 'manual') {
+    if (nameInput) nameInput.value = currentUser?.name || '';
+    if (phoneInput) phoneInput.value = currentUser?.phone || '';
+    if (addrInput) addrInput.value = '';
+    if (cityInput) cityInput.value = '';
+    if (stateInput) stateInput.value = '';
+    if (pinInput) pinInput.value = '';
+    if (saveCheckbox) saveCheckbox.checked = true;
+    if (animate && addrInput) addrInput.focus();
+  } else {
+    const addr = savedAddresses.find(a => (a.id || a._id) === addressId);
+    if (addr) {
+      if (nameInput) nameInput.value = addr.fullName || '';
+      if (phoneInput) phoneInput.value = addr.phone || '';
+      if (addrInput) addrInput.value = (addr.addressLine1 || addr.street || '') + (addr.addressLine2 ? ', ' + addr.addressLine2 : '');
+      if (cityInput) cityInput.value = addr.city || '';
+      if (stateInput) stateInput.value = addr.state || '';
+      if (pinInput) pinInput.value = addr.postalCode || addr.pincode || '';
+      if (saveCheckbox) saveCheckbox.checked = false;
+    }
   }
 }
 
@@ -4941,6 +5446,15 @@ window.viewOrderDetails = viewOrderDetails;
 window.handleSimulateProgress = handleSimulateProgress;
 window.openInvoiceModal = openInvoiceModal;
 window.closeInvoiceModal = closeInvoiceModal;
+window.switchProfileTab = switchProfileTab;
+window.openAddressModal = openAddressModal;
+window.closeAddressModal = closeAddressModal;
+window.handleAddressModalSubmit = handleAddressModalSubmit;
+window.handleDeleteAddress = handleDeleteAddress;
+window.handleSetDefaultAddress = handleSetDefaultAddress;
+window.selectCheckoutAddress = selectCheckoutAddress;
+window.renderCheckoutAddressSelector = renderCheckoutAddressSelector;
+window.loadUserAddresses = loadUserAddresses;
 
 // Initialization
 loadAllState();

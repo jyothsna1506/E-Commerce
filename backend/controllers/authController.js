@@ -4,6 +4,31 @@ const { isConnected } = require("../config/db");
 const { signToken } = require("../middleware/auth");
 const memoryStore = require("../services/storageService");
 
+// Helper to sanitize address in user response
+const formatAddressItem = (addr) => {
+  if (!addr) return null;
+  const obj = addr.toObject ? addr.toObject() : { ...addr };
+  const id = (obj._id || obj.id || "").toString();
+  return {
+    _id: id,
+    id: id,
+    label: obj.label || "Home",
+    fullName: obj.fullName || "",
+    phone: obj.phone || "",
+    addressLine1: obj.addressLine1 || obj.street || "",
+    addressLine2: obj.addressLine2 || "",
+    street: obj.street || obj.addressLine1 || "",
+    city: obj.city || "",
+    state: obj.state || "",
+    postalCode: obj.postalCode || obj.pincode || "",
+    pincode: obj.pincode || obj.postalCode || "",
+    country: obj.country || "India",
+    isDefault: Boolean(obj.isDefault),
+    createdAt: obj.createdAt || new Date(),
+    updatedAt: obj.updatedAt || new Date(),
+  };
+};
+
 // Helper to sanitize user object for response
 const formatUserResponse = (user) => {
   return {
@@ -25,7 +50,7 @@ const formatUserResponse = (user) => {
     wishlist: user.wishlist || [],
     recentlyViewed: user.recentlyViewed || [],
     recentlyPurchased: user.recentlyPurchased || [],
-    addresses: user.addresses || [],
+    addresses: (user.addresses || []).map(formatAddressItem),
   };
 };
 

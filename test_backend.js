@@ -801,6 +801,322 @@ const server = app.listen(5099, async () => {
       assert.strictEqual(cancelDeliveredRes.body.success, false);
     });
 
+    // ==================================================
+    // SAVED ADDRESS BOOK & MULTI-ADDRESS CHECKOUT TESTS
+    // ==================================================
+
+    // 50. Unauthenticated Address Access Rejected
+    await test("GET /api/users/addresses rejects unauthenticated request with 401", async () => {
+      const res = await request("GET", "/api/users/addresses");
+      assert.strictEqual(res.status, 401);
+      assert.strictEqual(res.body.success, false);
+    });
+
+    // Setup dedicated User A and User B for address testing
+    const addrUserAEmail = `addr_user_a_${Date.now()}@example.com`;
+    const addrUserBEmail = `addr_user_b_${Date.now()}@example.com`;
+    const regResA = await request("POST", "/api/auth/register", {
+      name: "Address User A",
+      email: addrUserAEmail,
+      password: "password123",
+      confirmPassword: "password123",
+      phone: "9111111111",
+    });
+    const tokenA = regResA.body.token;
+
+    const regResB = await request("POST", "/api/auth/register", {
+      name: "Address User B",
+      email: addrUserBEmail,
+      password: "password123",
+      confirmPassword: "password123",
+      phone: "9222222222",
+    });
+    const tokenB = regResB.body.token;
+
+    // 51. Authenticated User Lists Empty/Initial Addresses
+    await test("GET /api/users/addresses returns address list for authenticated user", async () => {
+      const res = await request("GET", "/api/users/addresses", null, tokenA);
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.success, true);
+      assert(Array.isArray(res.body.addresses));
+      assert.strictEqual(res.body.addresses.length, 0);
+    });
+
+    // 52. Validation: Rejects Missing Required Fields
+    await test("POST /api/users/addresses rejects missing required fields with 400", async () => {
+      const res = await request(
+        "POST",
+        "/api/users/addresses",
+        {
+          fullName: "",
+          phone: "",
+        },
+        tokenA
+      );
+      assert.strictEqual(res.status, 400);
+      assert.strictEqual(res.body.success, false);
+      assert(res.body.error);
+    });
+
+    let address1Id = null;
+    let address2Id = null;
+
+    // 53. Authenticated User Creates First Address
+    await test("POST /api/users/addresses creates a new address for authenticated user", async () => {
+      const res = await request(
+        "POST",
+        "/api/users/addresses",
+        {
+          label: "Home",
+          fullName: "Address User A",
+          phone: "9111111111",
+          addressLine1: "123 Main Street, Apt 4B",
+          addressLine2: "Near City Park",
+          city: "Bengaluru",
+          state: "Karnataka",
+          postalCode: "560001",
+          country: "India",
+        },
+        tokenA
+      );
+      assert.strictEqual(res.status, 201);
+      assert.strictEqual(res.body.success, true);
+      assert(res.body.address);
+      assert.strictEqual(res.body.address.label, "Home");
+      assert.strictEqual(res.body.address.fullName, "Address User A");
+      assert.strictEqual(res.body.address.addressLine1, "123 Main Street, Apt 4B");
+      assert.strictEqual(res.body.address.city, "Bengaluru");
+      assert.strictEqual(res.body.address.postalCode, "560001");
+      address1Id = res.body.address.id || res.body.address._id;
+      assert(address1Id, "Address ID should be present");
+    });
+
+    // 54. First Address Automatically Set as Default
+    await test("First created address automatically receives isDefault: true", async () => {
+      const res = await request("GET", "/api/users/addresses", null, tokenA);
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.addresses.length, 1);
+      assert.strictEqual(res.body.addresses[0].isDefault, true);
+    });
+
+    // 55. Second Address Without isDefault Leaves First as Default
+    await test("Adding second address with isDefault: false keeps first address as default", async () => {
+      const res = await request(
+        "POST",
+        "/api/users/addresses",
+        {
+          label: "Work",
+          fullName: "Address User A",
+          phone: "9111111111",
+          addressLine1: "456 Tech Park, Building 2",
+          addressLine2: "Electronic City",
+          city: "Bengaluru",
+          state: "Karnataka",
+          postalCode: "560100",
+          country: "India",
+          isDefault: false,
+        },
+        tokenA
+      );
+      assert.strictEqual(res.status, 201);
+      address2Id = res.body.address.id || res.body.address._id;
+      assert.strictEqual(res.body.address.isDefault, false);
+
+      const listRes = await request("GET", "/api/users/addresses", null, tokenA);
+      assert.strictEqual(listRes.body.addresses.length, 2);
+      const addr1 = listRes.body.addresses.find((a) => (a.id || a._id) === address1Id);
+      const addr2 = listRes.body.addresses.find((a) => (a.id || a._id) === address2Id);
+      assert.strictEqual(addr1.isDefault, true);
+      assert.strictEqual(addr2.isDefault, false);
+    });
+
+    // 56. Adding Address with isDefault: true Unsets Previous Default
+    let address3Id = null;
+    await test("Adding third address with isDefault: true unsets previous default", async () => {
+      const res = await request(
+        "POST",
+        "/api/users/addresses",
+        {
+          label: "Other",
+          fullName: "User A Vacation",
+          phone: "9111111111",
+          addressLine1: "789 Beach Road, Villa 12",
+          city: "Panaji",
+          state: "Goa",
+          postalCode: "403001",
+          country: "India",
+          isDefault: true,
+        },
+        tokenA
+      );
+      assert.strictEqual(res.status, 201);
+      address3Id = res.body.address.id || res.body.address._id;
+      assert.strictEqual(res.body.address.isDefault, true);
+
+      const listRes = await request("GET", "/api/users/addresses", null, tokenA);
+      const defaultAddrs = listRes.body.addresses.filter((a) => a.isDefault);
+      assert.strictEqual(defaultAddrs.length, 1);
+      assert.strictEqual(defaultAddrs[0].id || defaultAddrs[0]._id, address3Id);
+    });
+
+    // 57. Only One Default Address Exists Across Entire Collection
+    await test("Strict default guarantee: exactly one default address exists", async () => {
+      const listRes = await request("GET", "/api/users/addresses", null, tokenA);
+      const defaults = listRes.body.addresses.filter((a) => a.isDefault);
+      assert.strictEqual(defaults.length, 1);
+    });
+
+    // 58. Authenticated User Can Update Address Details
+    await test("PUT /api/users/addresses/:addressId updates address fields", async () => {
+      const res = await request(
+        "PUT",
+        `/api/users/addresses/${address1Id}`,
+        {
+          fullName: "Address User A Updated",
+          addressLine2: "Suite 999",
+        },
+        tokenA
+      );
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.success, true);
+      assert.strictEqual(res.body.address.fullName, "Address User A Updated");
+      assert.strictEqual(res.body.address.addressLine2, "Suite 999");
+    });
+
+    // 59. Setting Specific Address as Default via /default
+    await test("PUT /api/users/addresses/:addressId/default switches default to specified address", async () => {
+      const res = await request("PUT", `/api/users/addresses/${address1Id}/default`, null, tokenA);
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.body.success, true);
+      assert.strictEqual(res.body.address.isDefault, true);
+
+      const listRes = await request("GET", "/api/users/addresses", null, tokenA);
+      const addr1 = listRes.body.addresses.find((a) => (a.id || a._id) === address1Id);
+      const addr3 = listRes.body.addresses.find((a) => (a.id || a._id) === address3Id);
+      assert.strictEqual(addr1.isDefault, true);
+      assert.strictEqual(addr3.isDefault, false);
+    });
+
+    // 60. Deleting Default Address Safely Promotes Remaining Address to Default
+    await test("DELETE default address safely promotes next remaining address to default", async () => {
+      // address1 is default. Delete address1.
+      const delRes = await request("DELETE", `/api/users/addresses/${address1Id}`, null, tokenA);
+      assert.strictEqual(delRes.status, 200);
+      assert.strictEqual(delRes.body.success, true);
+
+      // Remaining addresses should be 2, and exactly 1 must be default
+      const listRes = await request("GET", "/api/users/addresses", null, tokenA);
+      assert.strictEqual(listRes.body.addresses.length, 2);
+      const defaults = listRes.body.addresses.filter((a) => a.isDefault);
+      assert.strictEqual(defaults.length, 1);
+      // address1 should no longer exist
+      assert(!listRes.body.addresses.some((a) => (a.id || a._id) === address1Id));
+    });
+
+    // 61. Deleting a Non-Default Address
+    await test("DELETE /api/users/addresses/:addressId deletes specified address", async () => {
+      const delRes = await request("DELETE", `/api/users/addresses/${address3Id}`, null, tokenA);
+      assert.strictEqual(delRes.status, 200);
+      assert.strictEqual(delRes.body.success, true);
+
+      const listRes = await request("GET", "/api/users/addresses", null, tokenA);
+      assert.strictEqual(listRes.body.addresses.length, 1);
+      assert.strictEqual(listRes.body.addresses[0].id || listRes.body.addresses[0]._id, address2Id);
+      assert.strictEqual(listRes.body.addresses[0].isDefault, true);
+    });
+
+    // 62. User B Cannot View User A's Saved Addresses
+    await test("Multi-tenant security: User B address list is strictly isolated from User A", async () => {
+      const resB = await request("GET", "/api/users/addresses", null, tokenB);
+      assert.strictEqual(resB.status, 200);
+      assert.strictEqual(resB.body.addresses.length, 0);
+    });
+
+    // 63. User B Cannot Update User A's Saved Address
+    await test("Multi-tenant security: User B cannot update User A's address (returns 404)", async () => {
+      const res = await request(
+        "PUT",
+        `/api/users/addresses/${address2Id}`,
+        { fullName: "Hacker Attempt" },
+        tokenB
+      );
+      assert.strictEqual(res.status, 404);
+      assert.strictEqual(res.body.success, false);
+    });
+
+    // 64. User B Cannot Delete User A's Saved Address
+    await test("Multi-tenant security: User B cannot delete User A's address (returns 404)", async () => {
+      const res = await request("DELETE", `/api/users/addresses/${address2Id}`, null, tokenB);
+      assert.strictEqual(res.status, 404);
+      assert.strictEqual(res.body.success, false);
+    });
+
+    // 65. Checkout Using Saved Address Succeeds
+    let checkoutOrderId = null;
+    await test("POST /api/orders successfully places order using saved address data", async () => {
+      const savedAddr = (await request("GET", "/api/users/addresses", null, tokenA)).body.addresses[0];
+      const orderRes = await request(
+        "POST",
+        "/api/orders",
+        {
+          items: [
+            {
+              productId: 1,
+              name: "Classic Cotton Crewneck T-Shirt",
+              price: 799,
+              quantity: 1,
+              size: "L",
+              image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&q=80",
+            },
+          ],
+          shippingAddress: {
+            fullName: savedAddr.fullName,
+            phone: savedAddr.phone,
+            addressLine1: savedAddr.addressLine1,
+            addressLine2: savedAddr.addressLine2,
+            city: savedAddr.city,
+            state: savedAddr.state,
+            postalCode: savedAddr.postalCode,
+            country: savedAddr.country,
+          },
+          paymentMethod: "card",
+          subtotal: 799,
+          total: 799,
+        },
+        tokenA
+      );
+      assert.strictEqual(orderRes.status, 201);
+      assert.strictEqual(orderRes.body.success, true);
+      assert(orderRes.body.order.orderId);
+      checkoutOrderId = orderRes.body.order.orderId;
+      assert.strictEqual(orderRes.body.order.shippingAddress.fullName, savedAddr.fullName);
+      assert.strictEqual(orderRes.body.order.shippingAddress.city, savedAddr.city);
+    });
+
+    // 66. Order Stores Independent Address Snapshot Unaffected by Later Address Changes
+    await test("Order preserves immutable address snapshot independent of subsequent address modifications", async () => {
+      // Modify User A's remaining saved address
+      await request(
+        "PUT",
+        `/api/users/addresses/${address2Id}`,
+        {
+          fullName: "Completely Changed Name",
+          addressLine1: "999 Altered Way",
+          city: "Mumbai",
+          postalCode: "400001",
+        },
+        tokenA
+      );
+
+      // Verify the previously placed order's shipping address is unchanged
+      const fetchOrderRes = await request("GET", `/api/orders/${checkoutOrderId}`, null, tokenA);
+      assert.strictEqual(fetchOrderRes.status, 200);
+      const orderShipping = fetchOrderRes.body.order.shippingAddress;
+      assert.strictEqual(orderShipping.fullName, "Address User A");
+      assert.strictEqual(orderShipping.city, "Bengaluru");
+      assert.strictEqual(orderShipping.postalCode, "560100");
+    });
+
     console.log("==================================================");
     console.log(`TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
     console.log("==================================================\n");

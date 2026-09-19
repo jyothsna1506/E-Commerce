@@ -521,3 +521,142 @@
       }
     }
 
+    /* ==================================================
+       Address Book & Multi-Address Checkout Styles
+       ================================================== */
+
+    /* Profile Tabs */
+    .profile-tab-btn {
+      background: transparent;
+      border: none;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .profile-tab-btn:hover {
+      color: var(--accent-color);
+    }
+    .profile-tab-btn.active {
+      color: var(--accent-color);
+      border-bottom-color: var(--accent-color);
+      font-weight: 700;
+    }
+
+    /* Saved Address Cards in Profile */
+    .saved-address-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px;
+      position: relative;
+      transition: all 0.2s;
+    }
+    .saved-address-card:hover {
+      border-color: rgba(255, 153, 0, 0.4);
+      box-shadow: 0 2px 8px var(--card-shadow);
+    }
+    .saved-address-card.default-address {
+      border-left: 4px solid var(--accent-color);
+      background: var(--bg-secondary);
+    }
+
+    /* Badges */
+    .address-type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-home {
+      background: rgba(52, 152, 219, 0.15);
+      color: #2980b9;
+      border: 1px solid rgba(52, 152, 219, 0.3);
+    }
+    .badge-work {
+      background: rgba(155, 89, 182, 0.15);
+      color: #8e44ad;
+      border: 1px solid rgba(155, 89, 182, 0.3);
+    }
+    .badge-other {
+      background: rgba(108, 117, 125, 0.15);
+      color: #6c757d;
+      border: 1px solid rgba(108, 117, 125, 0.3);
+    }
+    .badge-default {
+      background: rgba(39, 174, 96, 0.15);
+      color: #27ae60;
+      border: 1px solid rgba(39, 174, 96, 0.3);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    /* Address Actions */
+    .address-action-btn {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .address-action-btn:hover {
+      border-color: var(--accent-color);
+      color: var(--accent-color);
+    }
+    .address-action-btn.delete-btn:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+    .address-action-btn.default-btn:hover {
+      border-color: #27ae60;
+      color: #27ae60;
+    }
+
+    /* Checkout Selectable Address Cards */
+    .checkout-address-card {
+      background: var(--bg-primary);
+      border: 2px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .checkout-address-card:hover {
+      border-color: rgba(255, 153, 0, 0.5);
+      background: var(--bg-secondary);
+    }
+    .checkout-address-card.selected {
+      border-color: var(--accent-color);
+      background: var(--bg-secondary);
+      box-shadow: 0 0 0 1px var(--accent-color), 0 2px 8px var(--card-shadow);
+    }
+    .checkout-address-card input[type="radio"] {
+      margin-top: 3px;
+      accent-color: var(--accent-color);
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+

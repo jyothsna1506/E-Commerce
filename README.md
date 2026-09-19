@@ -48,6 +48,11 @@ The Express server acts as both the static file host (serving the SPA from `/fro
 - **Coupon Discount System**: Validates promo codes (e.g., `SAVE10` for 10% off, `SAVE20` for 20% off, `SHOPEXPRESS` for 15% off) with dynamic discount recalculation.
 - **Simulated Checkout & Payment Flow**: Multi-method checkout supporting Credit/Debit Cards, UPI apps (Google Pay, PhonePe, Paytm, BHIM), and Cash on Delivery (COD) with shipping address auto-save.
 - **Dynamic Order Tracking & Delivery Estimation**: Real-time 4-stage tracking lifecycle (`Placed` ➔ `Shipped` ➔ `Out for Delivery` ➔ `Delivered`) backed by `GET /api/orders/:id/tracking`, sequential transition simulation (`PUT /api/orders/:id/progress`), persistent deterministic delivery dates, carrier logistics metadata, and transition timestamps.
+- **Saved Address Book & Multi-Address Checkout**: Authenticated users can store and manage structured delivery addresses (`Home`, `Work`, `Other`) via full CRUD endpoints (`GET`, `POST`, `PUT`, `DELETE` at `/api/users/addresses`, and dedicated `PUT /api/users/addresses/:addressId/default`).
+- **Strict Default Address Guarantee**: Exactly one default address is maintained per user. The first added address automatically becomes default; selecting any address as default unsets previous defaults; deleting the default promotes the next remaining address to default.
+- **Interactive Checkout Address Picker**: Authenticated checkout displays saved addresses as selectable cards with radio buttons; the default address is automatically pre-selected and populates the shipping form fields; supports seamlessly switching to "+ Enter a different address manually" or creating new addresses directly within checkout.
+- **Immutable Order Address Snapshot Safety**: Every placed order preserves an independent, immutable snapshot of the shipping address at time of purchase. Subsequent updates or deletions in the user's address book never affect past orders or tax invoices.
+- **Strict Tenant Isolation & Security**: Address mutations strictly scope queries within the authenticated user's session (`User.addresses`). Cross-user address access, updates, or deletions are strictly rejected.
 - **Tax Invoice & Receipt Generation**: Complete customer invoices (`GET /api/orders/:id/invoice`) with GST breakdown, itemized line totals, discounts, shipping, seller GSTIN information, and clean, print-optimized stylesheet (`window.print()`).
 - **Strict Order Ownership & Security Protection**: Orders, tracking events, and invoices are strictly isolated per user account. Cross-user access (e.g. User B requesting User A's tracking or invoice) is strictly blocked with `403 Forbidden`.
 - **Dark / Light Theme Toggle**: Persistent user theme preference stored in localStorage.
@@ -101,7 +106,7 @@ E-Commerce-main/
 ├── .env.example           # Template for environment variables
 ├── .gitignore             # Git ignore configuration
 ├── package.json           # Project manifest & npm scripts
-├── test_backend.js        # Automated backend integration test suite (49 tests)
+├── test_backend.js        # Automated backend integration test suite (66 tests)
 └── README.md              # Project documentation
 ```
 
@@ -212,7 +217,7 @@ npm run seed
 ```
 
 ### 6. Run Automated Tests
-Execute the comprehensive integration test suite (49 tests covering health, auth, catalog, filters, reviews, cart, wishlist, orders, dynamic tracking, delivery estimates, invoice data, and security permissions):
+Execute the comprehensive integration test suite (66 tests covering health, auth, catalog, filters, reviews, cart, wishlist, orders, dynamic tracking, delivery estimates, invoice data, saved address book, strict default rules, and security permissions):
 ```bash
 npm test
 ```

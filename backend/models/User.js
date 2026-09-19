@@ -25,6 +25,76 @@ const cartItemSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const addressSchema = new mongoose.Schema(
+  {
+    label: {
+      type: String,
+      enum: ["Home", "Work", "Other"],
+      default: "Home",
+    },
+    fullName: {
+      type: String,
+      required: [true, "Full name is required"],
+      trim: true,
+    },
+    phone: {
+      type: String,
+      required: [true, "Phone number is required"],
+      trim: true,
+    },
+    addressLine1: {
+      type: String,
+      required: [true, "Address line 1 is required"],
+      alias: "street",
+      trim: true,
+    },
+    addressLine2: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    city: {
+      type: String,
+      required: [true, "City is required"],
+      trim: true,
+    },
+    state: {
+      type: String,
+      required: [true, "State is required"],
+      trim: true,
+    },
+    postalCode: {
+      type: String,
+      required: [true, "Postal code is required"],
+      alias: "pincode",
+      trim: true,
+    },
+    country: {
+      type: String,
+      default: "India",
+      trim: true,
+    },
+    isDefault: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { _id: true, timestamps: true }
+);
+
+addressSchema.pre("validate", function (next) {
+  if (!this.addressLine1 && this.street) {
+    this.addressLine1 = this.street;
+  }
+  if (!this.postalCode && this.pincode) {
+    this.postalCode = this.pincode;
+  }
+  if (!this.label) {
+    this.label = "Home";
+  }
+  next();
+});
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -120,20 +190,7 @@ const userSchema = new mongoose.Schema(
         type: Number,
       },
     ],
-    addresses: [
-      {
-        fullName: String,
-        phone: String,
-        street: String,
-        city: String,
-        state: String,
-        pincode: String,
-        isDefault: {
-          type: Boolean,
-          default: false,
-        },
-      },
-    ],
+    addresses: [addressSchema],
   },
   {
     timestamps: true,

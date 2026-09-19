@@ -84,13 +84,19 @@ const validateOrder = (req, res, next) => {
     });
   }
 
-  const { fullName, phone, street, city, state, pincode } = shippingAddress;
-  if (!fullName || !phone || !street || !city || !state || !pincode) {
+  const streetVal = (shippingAddress.street || shippingAddress.addressLine1 || "").trim();
+  const pincodeVal = (shippingAddress.pincode || shippingAddress.postalCode || "").trim();
+  const { fullName, phone, city, state } = shippingAddress;
+  if (!fullName || !phone || !streetVal || !city || !state || !pincodeVal) {
     return res.status(400).json({
       success: false,
       error: "All address fields (fullName, phone, street, city, state, pincode) are required.",
     });
   }
+  shippingAddress.street = streetVal;
+  shippingAddress.addressLine1 = streetVal;
+  shippingAddress.pincode = pincodeVal;
+  shippingAddress.postalCode = pincodeVal;
 
   if (typeof total !== "number" || total < 0) {
     return res.status(400).json({

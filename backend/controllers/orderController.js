@@ -46,11 +46,25 @@ const createOrder = async (req, res, next) => {
     const trackingNumber = `EXP-TRK-${orderId.replace(/^ORD-/, "")}`;
     const estimatedDeliveryDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
+    const normalizedShippingAddress = {
+      fullName: shippingAddress ? (shippingAddress.fullName || "") : "",
+      email: shippingAddress ? (shippingAddress.email || (req.user ? req.user.email : "") || "") : (req.user ? req.user.email : ""),
+      phone: shippingAddress ? (shippingAddress.phone || "") : "",
+      street: shippingAddress ? (shippingAddress.street || shippingAddress.addressLine1 || "") : "",
+      addressLine1: shippingAddress ? (shippingAddress.addressLine1 || shippingAddress.street || "") : "",
+      addressLine2: shippingAddress ? (shippingAddress.addressLine2 || "") : "",
+      city: shippingAddress ? (shippingAddress.city || "") : "",
+      state: shippingAddress ? (shippingAddress.state || "") : "",
+      pincode: shippingAddress ? (shippingAddress.pincode || shippingAddress.postalCode || "") : "",
+      postalCode: shippingAddress ? (shippingAddress.postalCode || shippingAddress.pincode || "") : "",
+      country: shippingAddress ? (shippingAddress.country || "India") : "India",
+    };
+
     const newOrderData = {
       orderId,
       user: userId,
       items: normalizedItems,
-      shippingAddress,
+      shippingAddress: normalizedShippingAddress,
       paymentMethod,
       paymentStatus: paymentMethod === "cod" ? "Pending" : "Completed",
       subtotal: Number(subtotal) || 0,

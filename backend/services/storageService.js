@@ -1,4 +1,4 @@
-﻿// Resilient In-Memory Storage & Repository Layer
+// Resilient In-Memory Storage & Repository Layer
 // Allows seamless testing and offline development when MongoDB daemon is not running.
 const bcrypt = require("bcryptjs");
 const { defaultProducts } = require("../scripts/seed");
@@ -42,13 +42,22 @@ const memoryStore = {
     wishlist: [6, 12, 17],
     addresses: [
       {
+        _id: "addr-demo-1",
+        id: "addr-demo-1",
+        label: "Home",
         fullName: "Alex Morgan",
         phone: "9876543210",
+        addressLine1: "42 Tech Boulevard, Suite 500",
+        addressLine2: "",
         street: "42 Tech Boulevard, Suite 500",
         city: "Bengaluru",
         state: "Karnataka",
+        postalCode: "560001",
         pincode: "560001",
+        country: "India",
         isDefault: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     ],
     createdAt: new Date(),

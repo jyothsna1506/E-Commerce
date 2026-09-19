@@ -460,6 +460,20 @@
         <h3 style="font-size: 20px; font-weight: 700; margin: 0 0 16px 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
          <span>📍</span> <span>1. Delivery Address</span>
         </h3>
+
+        <!-- Saved Address Selector in Checkout -->
+        <div id="checkout-address-selector-container" style="display: none; margin-bottom: 20px;">
+         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Select a delivery address:</span>
+          <button type="button" onclick="openAddressModal(null, 'checkout')" style="background: transparent; color: var(--accent-color); border: none; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+           <span>+</span> Add New Address
+          </button>
+         </div>
+         <div id="checkout-addresses-grid" style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px;">
+          <!-- Saved address cards dynamically populated here -->
+         </div>
+         <div style="border-top: 1px dashed var(--border-color); margin: 16px 0;"></div>
+        </div>
         
         <form id="shipping-address-form" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
          <div style="grid-column: 1 / -1;">
@@ -1208,7 +1222,7 @@
    <div class="modal-box" style="max-width: 580px; padding: 32px; border-radius: 16px;">
     <button id="close-profile-modal" style="position: absolute; top: 16px; right: 16px; background: transparent; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">✕</button>
     
-    <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 24px; border-bottom: 2px solid var(--border-color); padding-bottom: 16px;">
+    <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); padding-bottom: 16px;">
      <div style="width: 54px; height: 54px; border-radius: 50%; background: var(--accent-color); color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700;">
       <span id="profile-avatar-initial">U</span>
      </div>
@@ -1218,89 +1232,188 @@
      </div>
     </div>
 
-    <!-- Personalization Preferences Form -->
-    <form id="preferences-form">
-     <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 12px 0; color: var(--text-primary);">✨ Shopping & Recommendation Preferences</h3>
-     <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 18px 0;">Help us curate your recommendations. These preferences power your "Recommended for You" picks.</p>
+    <!-- Profile Navigation Tabs -->
+    <div class="profile-tabs" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+     <button type="button" id="tab-btn-pref" class="profile-tab-btn active" onclick="switchProfileTab('preferences')">✨ Shopping Preferences</button>
+     <button type="button" id="tab-btn-addr" class="profile-tab-btn" onclick="switchProfileTab('addresses')">📍 Saved Addresses (<span id="profile-address-count">0</span>)</button>
+    </div>
 
-     <!-- Age Range -->
-     <div style="margin-bottom: 16px;">
-      <label for="pref-age-range" style="display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--text-primary);">Age Range</label>
-      <select id="pref-age-range" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
-       <option value="under-18">Under 18</option>
-       <option value="18-24">18–24</option>
-       <option value="25-34" selected>25–34</option>
-       <option value="35-44">35–44</option>
-       <option value="45-54">45–54</option>
-       <option value="55+">55+</option>
-      </select>
-     </div>
+    <!-- Tab 1: Personalization Preferences Content -->
+    <div id="profile-pref-tab-content">
+     <form id="preferences-form">
+      <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 12px 0; color: var(--text-primary);">✨ Recommendation Preferences</h3>
+      <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 18px 0;">Help us curate your recommendations. These preferences power your "Recommended for You" picks.</p>
 
-     <!-- Gender -->
-     <div style="margin-bottom: 16px;">
-      <label for="pref-gender" style="display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--text-primary);">Gender (Optional)</label>
-      <select id="pref-gender" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
-       <option value="" selected>Prefer not to say</option>
-       <option value="female">Female</option>
-       <option value="male">Male</option>
-       <option value="other">Other</option>
-      </select>
-     </div>
-
-     <!-- Preferred Categories -->
-     <div style="margin-bottom: 18px;">
-      <label style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--text-primary);">Preferred Categories (Select all that apply)</label>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-       <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
-        <input type="checkbox" name="pref-cat" value="fashion" checked style="accent-color: var(--accent-color);"> Fashion & Apparel
-       </label>
-       <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
-        <input type="checkbox" name="pref-cat" value="electronics" checked style="accent-color: var(--accent-color);"> Electronics & Gadgets
-       </label>
-       <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
-        <input type="checkbox" name="pref-cat" value="home" style="accent-color: var(--accent-color);"> Home & Kitchen
-       </label>
-       <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
-        <input type="checkbox" name="pref-cat" value="sports" style="accent-color: var(--accent-color);"> Sports & Fitness
-       </label>
-       <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
-        <input type="checkbox" name="pref-cat" value="books" style="accent-color: var(--accent-color);"> Books & Reading
-       </label>
-       <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
-        <input type="checkbox" name="pref-cat" value="beauty" style="accent-color: var(--accent-color);"> Beauty & Personal Care
-       </label>
-      </div>
-     </div>
-
-     <!-- Sizes -->
-     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px;">
-      <div>
-       <label for="pref-clothing-size" style="display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--text-primary);">Preferred Clothing Size</label>
-       <select id="pref-clothing-size" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
-        <option value="XS">XS (Extra Small)</option>
-        <option value="S">S (Small)</option>
-        <option value="M" selected>M (Medium)</option>
-        <option value="L">L (Large)</option>
-        <option value="XL">XL (Extra Large)</option>
-        <option value="XXL">XXL (2X Large)</option>
+      <!-- Age Range -->
+      <div style="margin-bottom: 16px;">
+       <label for="pref-age-range" style="display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--text-primary);">Age Range</label>
+       <select id="pref-age-range" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+        <option value="under-18">Under 18</option>
+        <option value="18-24">18–24</option>
+        <option value="25-34" selected>25–34</option>
+        <option value="35-44">35–44</option>
+        <option value="45-54">45–54</option>
+        <option value="55+">55+</option>
        </select>
       </div>
-      <div>
-       <label for="pref-shoe-size" style="display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--text-primary);">Shoe Size (UK/India)</label>
-       <select id="pref-shoe-size" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
-        <option value="6">Size 6</option>
-        <option value="7">Size 7</option>
-        <option value="8">Size 8</option>
-        <option value="9" selected>Size 9</option>
-        <option value="10">Size 10</option>
-        <option value="11">Size 11</option>
+
+      <!-- Gender -->
+      <div style="margin-bottom: 16px;">
+       <label for="pref-gender" style="display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--text-primary);">Gender (Optional)</label>
+       <select id="pref-gender" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+        <option value="" selected>Prefer not to say</option>
+        <option value="female">Female</option>
+        <option value="male">Male</option>
+        <option value="other">Other</option>
        </select>
       </div>
-     </div>
 
-     <div style="display: flex; gap: 12px; margin-top: 24px;">
-      <button type="submit" id="save-preferences-btn" style="flex: 1; background: var(--accent-color); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;">Save Preferences</button>
-      <button type="button" id="logout-btn" style="background: transparent; color: #ef4444; border: 1px solid #ef4444; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">Sign Out</button>
+      <!-- Preferred Categories -->
+      <div style="margin-bottom: 18px;">
+       <label style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--text-primary);">Preferred Categories (Select all that apply)</label>
+       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
+         <input type="checkbox" name="pref-cat" value="fashion" checked style="accent-color: var(--accent-color);"> Fashion &amp; Apparel
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
+         <input type="checkbox" name="pref-cat" value="electronics" checked style="accent-color: var(--accent-color);"> Electronics &amp; Gadgets
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
+         <input type="checkbox" name="pref-cat" value="home" style="accent-color: var(--accent-color);"> Home &amp; Kitchen
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
+         <input type="checkbox" name="pref-cat" value="sports" style="accent-color: var(--accent-color);"> Sports &amp; Fitness
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
+         <input type="checkbox" name="pref-cat" value="books" style="accent-color: var(--accent-color);"> Books &amp; Reading
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer;">
+         <input type="checkbox" name="pref-cat" value="beauty" style="accent-color: var(--accent-color);"> Beauty &amp; Personal Care
+        </label>
+       </div>
+      </div>
+
+      <!-- Sizes -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px;">
+       <div>
+        <label for="pref-clothing-size" style="display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--text-primary);">Preferred Clothing Size</label>
+        <select id="pref-clothing-size" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+         <option value="XS">XS (Extra Small)</option>
+         <option value="S">S (Small)</option>
+         <option value="M" selected>M (Medium)</option>
+         <option value="L">L (Large)</option>
+         <option value="XL">XL (Extra Large)</option>
+         <option value="XXL">XXL (2X Large)</option>
+        </select>
+       </div>
+       <div>
+        <label for="pref-shoe-size" style="display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--text-primary);">Shoe Size (UK/India)</label>
+        <select id="pref-shoe-size" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+         <option value="6">Size 6</option>
+         <option value="7">Size 7</option>
+         <option value="8">Size 8</option>
+         <option value="9" selected>Size 9</option>
+         <option value="10">Size 10</option>
+         <option value="11">Size 11</option>
+        </select>
+       </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: 24px;">
+       <button type="submit" id="save-preferences-btn" style="flex: 1; background: var(--accent-color); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;">Save Preferences</button>
+       <button type="button" id="logout-btn" style="background: transparent; color: #ef4444; border: 1px solid #ef4444; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">Sign Out</button>
+      </div>
+     </form>
+    </div>
+
+    <!-- Tab 2: Saved Addresses Content -->
+    <div id="profile-addr-tab-content" style="display: none;">
+     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: var(--text-primary);">Your Delivery Address Book</h3>
+      <button type="button" id="profile-add-addr-btn" onclick="openAddressModal()" style="background: var(--accent-color); color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+       <span>+</span> Add Address
+      </button>
+     </div>
+     <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 14px 0;">Manage your delivery destinations. Select a default address for fast, 1-click checkout.</p>
+     <div id="profile-address-list" style="display: flex; flex-direction: column; gap: 12px; max-height: 380px; overflow-y: auto; padding-right: 4px;">
+      <!-- Saved addresses rendered here -->
+     </div>
+     <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+      <button type="button" onclick="document.getElementById('profile-modal').style.display = 'none'" style="background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">Close</button>
+     </div>
+    </div>
+   </div>
+  </div>
+
+  <!-- Add / Edit Address Modal -->
+  <div id="address-modal" class="modal-overlay" style="display: none; z-index: 10001;">
+   <div class="modal-box" style="max-width: 520px; padding: 28px; border-radius: 16px;">
+    <button type="button" id="close-address-modal" onclick="closeAddressModal()" style="position: absolute; top: 16px; right: 16px; background: transparent; border: none; font-size: 22px; cursor: pointer; color: var(--text-secondary); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">✕</button>
+    <h2 id="address-modal-title" style="font-size: 20px; font-weight: 700; margin: 0 0 16px 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+     <span>📍</span> <span>Add New Delivery Address</span>
+    </h2>
+    <form id="address-modal-form" onsubmit="handleAddressModalSubmit(event)">
+     <input type="hidden" id="addr-modal-id" value="">
+     <!-- Label selection -->
+     <div style="margin-bottom: 14px;">
+      <label style="display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--text-primary);">Address Label / Type</label>
+      <div style="display: flex; gap: 12px;">
+       <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; color: var(--text-primary);">
+        <input type="radio" name="addr-modal-label" value="Home" checked style="accent-color: var(--accent-color);"> 🏠 Home
+       </label>
+       <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; color: var(--text-primary);">
+        <input type="radio" name="addr-modal-label" value="Work" style="accent-color: var(--accent-color);"> 🏢 Work
+       </label>
+       <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; color: var(--text-primary);">
+        <input type="radio" name="addr-modal-label" value="Other" style="accent-color: var(--accent-color);"> 📍 Other
+       </label>
+      </div>
+     </div>
+     <!-- Full Name & Phone -->
+     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+      <div>
+       <label for="addr-modal-name" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; color: var(--text-primary);">Full Name *</label>
+       <input type="text" id="addr-modal-name" required placeholder="e.g. Alex Morgan" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+      </div>
+      <div>
+       <label for="addr-modal-phone" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; color: var(--text-primary);">Phone Number * (10 Digits)</label>
+       <input type="tel" id="addr-modal-phone" required maxlength="10" placeholder="9876543210" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+      </div>
+     </div>
+     <!-- Address Line 1 -->
+     <div style="margin-bottom: 12px;">
+      <label for="addr-modal-line1" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; color: var(--text-primary);">Flat, House No., Building, Street *</label>
+      <input type="text" id="addr-modal-line1" required placeholder="e.g. Flat 402, Sunshine Residency, 12th Cross" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+     </div>
+     <!-- Address Line 2 -->
+     <div style="margin-bottom: 12px;">
+      <label for="addr-modal-line2" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; color: var(--text-primary);">Area, Landmark (Optional)</label>
+      <input type="text" id="addr-modal-line2" placeholder="e.g. Near City Center Mall" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+     </div>
+     <!-- City, State, Pincode -->
+     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+      <div>
+       <label for="addr-modal-city" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; color: var(--text-primary);">City *</label>
+       <input type="text" id="addr-modal-city" required placeholder="e.g. Bengaluru" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+      </div>
+      <div>
+       <label for="addr-modal-state" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; color: var(--text-primary);">State *</label>
+       <input type="text" id="addr-modal-state" required placeholder="e.g. Karnataka" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+      </div>
+      <div>
+       <label for="addr-modal-pincode" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; color: var(--text-primary);">PIN Code *</label>
+       <input type="text" id="addr-modal-pincode" required maxlength="6" placeholder="560001" style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary);">
+      </div>
+     </div>
+     <!-- Default Checkbox -->
+     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+      <input type="checkbox" id="addr-modal-is-default" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-color);">
+      <label for="addr-modal-is-default" style="font-size: 14px; color: var(--text-primary); cursor: pointer;">Make this my default delivery address</label>
+     </div>
+     <!-- Buttons -->
+     <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button type="button" onclick="closeAddressModal()" style="background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">Cancel</button>
+      <button type="submit" id="addr-modal-submit-btn" style="background: var(--accent-color); color: white; border: none; padding: 10px 22px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;">Save Address</button>
      </div>
     </form>
    </div>
