@@ -1,4 +1,4 @@
-﻿const jwt = require("jsonwebtoken");
+const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 const JWT_SECRET = process.env.JWT_SECRET || "shop_express_super_secret_jwt_key_2026_production";
@@ -53,7 +53,7 @@ const protect = async (req, res, next) => {
   }
 };
 
-// Optional auth: attaches user if token exists, but allows guests to proceed
+// Optional auth: attaches user if token exists, or proceeds with unauthenticated principal
 const optionalAuth = async (req, res, next) => {
   let token;
 

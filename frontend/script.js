@@ -1889,7 +1889,7 @@ async function loadAndRenderProductReviews(productId) {
 
       // 1. Render Eligibility / Submission Action Container
       if (!authToken) {
-        // Guest user prompt
+        // Sign-in prompt for verified reviews
         container.innerHTML = `
           <div style="background: rgba(35, 47, 62, 0.05); border: 1px dashed var(--border-color); border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
             <div>
@@ -2212,7 +2212,7 @@ function renderRecommendations() {
   if (!section || !grid) return;
 
   const welcomeView = document.getElementById('welcome-view');
-  if (welcomeView && welcomeView.style.display === 'block' && !authToken && !isGuestMode()) {
+  if (!authToken || (welcomeView && welcomeView.style.display === 'block')) {
     section.style.display = 'none';
     return;
   }
@@ -2610,7 +2610,7 @@ function updateURLHash(view) {
 }
 
 function isGuestMode() {
-  return sessionStorage.getItem('shop_express_guest_mode') === 'true';
+  return false;
 }
 
 function showWelcomeScreen() {
@@ -2640,7 +2640,7 @@ function showWelcomeScreen() {
 }
 
 function handleLogoClick() {
-  if (authToken || isGuestMode()) {
+  if (authToken) {
     showProducts();
   } else {
     showWelcomeScreen();
@@ -2648,6 +2648,11 @@ function handleLogoClick() {
 }
 
 function showProducts() {
+  if (!authToken) {
+    showWelcomeScreen();
+    return;
+  }
+
   const welcomeView = document.getElementById('welcome-view');
   if (welcomeView) welcomeView.style.display = 'none';
 
@@ -2671,7 +2676,7 @@ function showProducts() {
 
 function showCart() {
   if (!authToken) {
-    promptAuthForAction('view_cart', null, 'Please sign in or create an account to view and manage your Shopping Cart.');
+    showWelcomeScreen();
     return;
   }
   const welcomeView = document.getElementById('welcome-view');
@@ -2690,7 +2695,7 @@ function showCart() {
 
 function showWishlist() {
   if (!authToken) {
-    promptAuthForAction('view_wishlist', null, 'Please sign in or create an account to access your Wishlist.');
+    showWelcomeScreen();
     return;
   }
   const welcomeView = document.getElementById('welcome-view');
@@ -2709,7 +2714,7 @@ function showWishlist() {
 
 function showOrders() {
   if (!authToken) {
-    promptAuthForAction('view_orders', null, 'Please sign in or create an account to view your Order History.');
+    showWelcomeScreen();
     return;
   }
   const welcomeView = document.getElementById('welcome-view');
@@ -2731,7 +2736,7 @@ function showOrders() {
 
 function showPayment() {
   if (!authToken) {
-    promptAuthForAction('checkout', null, 'Please sign in or create an account to proceed with Checkout & Payment.');
+    showWelcomeScreen();
     return;
   }
   if (cart.length === 0) {
@@ -2767,38 +2772,18 @@ function showPayment() {
 // Hash router
 window.addEventListener('hashchange', function() {
   const hash = window.location.hash.replace('#', '');
-  if (!authToken && !isGuestMode()) {
+  if (!authToken) {
     showWelcomeScreen();
     return;
   }
   if (hash === 'cart') {
-    if (!authToken) {
-      promptAuthForAction('view_cart', null, 'Please sign in or create an account to view and access your Shopping Cart.');
-      updateURLHash('products');
-    } else {
-      showCart();
-    }
+    showCart();
   } else if (hash === 'wishlist') {
-    if (!authToken) {
-      promptAuthForAction('view_wishlist', null, 'Please sign in or create an account to access your Wishlist.');
-      updateURLHash('products');
-    } else {
-      showWishlist();
-    }
+    showWishlist();
   } else if (hash === 'orders') {
-    if (!authToken) {
-      promptAuthForAction('view_orders', null, 'Please sign in or create an account to view your Order History.');
-      updateURLHash('products');
-    } else {
-      showOrders();
-    }
+    showOrders();
   } else if (hash === 'checkout') {
-    if (!authToken) {
-      promptAuthForAction('checkout', null, 'Please sign in or create an account to proceed with Checkout & Payment.');
-      updateURLHash('cart');
-    } else {
-      showPayment();
-    }
+    showPayment();
   } else {
     showProducts();
   }
@@ -3913,11 +3898,10 @@ function updateAuthUI(user) {
     const dispEmail = document.getElementById('profile-display-email');
     if (dispEmail) dispEmail.textContent = user.email || (user.phone ? `Phone: ${user.phone}` : '');
   } else {
-    const isGuest = isGuestMode();
-    authBtnLabel.textContent = isGuest ? 'Guest (Sign In)' : 'Sign In';
+    authBtnLabel.textContent = 'Sign In';
     if (authBtn) {
-      authBtn.title = isGuest ? 'Browsing as Guest - Click to Sign In' : 'Sign In to your Shop Express account';
-      authBtn.style.background = isGuest ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.15)';
+      authBtn.title = 'Sign In to your Shop Express account';
+      authBtn.style.background = 'rgba(255, 255, 255, 0.15)';
       authBtn.style.borderColor = 'rgba(255, 255, 255, 0.4)';
     }
     if (quickLogoutBtn) {
@@ -4170,10 +4154,7 @@ function executePendingAction() {
 }
 
 function guestBrowseCatalog() {
-  sessionStorage.setItem('shop_express_guest_mode', 'true');
-  showProducts();
-  updateAuthUI(null);
-  showToast('Welcome, Guest! Feel free to browse our products. Sign in anytime to unlock Cart, Wishlist & Checkout.', false);
+  showWelcomeScreen();
 }
 
 function switchWelcomeAuthTab(tab) {
@@ -4399,6 +4380,9 @@ async function handleVerifyPhoneOtp(e) {
         await syncUserOrdersFromBackend();
       }
       fetchAndRenderRecommendations();
+      if (typeof loadUserAddresses === 'function') {
+        loadUserAddresses();
+      }
 
       if (pendingAuthAction) {
         executePendingAction();
@@ -5113,7 +5097,7 @@ function renderScoredRecommendations(recs) {
   if (!section || !grid) return;
 
   const welcomeView = document.getElementById('welcome-view');
-  if (welcomeView && welcomeView.style.display === 'block' && !authToken && !isGuestMode()) {
+  if (!authToken || (welcomeView && welcomeView.style.display === 'block')) {
     section.style.display = 'none';
     return;
   }
@@ -5399,9 +5383,6 @@ function checkInitialAuthState() {
     else if (initialHash === 'wishlist') showWishlist();
     else if (initialHash === 'orders') showOrders();
     else if (initialHash === 'checkout') showPayment();
-  } else if (isGuestMode()) {
-    showProducts();
-    updateAuthUI(null);
   } else {
     showWelcomeScreen();
   }

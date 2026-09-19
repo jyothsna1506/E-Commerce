@@ -1,6 +1,6 @@
 # Shop Express - Full-Stack E-Commerce Web Application
 
-A full-stack, responsive e-commerce web platform built with a modular Node.js & Express REST API backend and a responsive Vanilla JavaScript frontend. Features catalog browsing, category filtering, live search, variant tracking, role-based guest access control, JWT-based user authentication, persistent shopping cart & wishlist, coupon system, simulated multi-method checkout, and real-time order tracking.
+A full-stack, responsive authentication-first e-commerce web platform built with a modular Node.js & Express REST API backend and a responsive Vanilla JavaScript frontend. Features catalog browsing, category filtering, live search, variant tracking, JWT-based user authentication & access control, persistent shopping cart & wishlist, coupon system, simulated multi-method checkout, and real-time order tracking.
 
 Repository: **[https://github.com/jyothsna1506/E-Commerce](https://github.com/jyothsna1506/E-Commerce)**
 
@@ -40,10 +40,9 @@ The Express server acts as both the static file host (serving the SPA from `/fro
 - **Product Details Quick-View Modal**: View product galleries, brand info, stock status, ratings, reviews count, quantity selectors, and related recommendations.
 - **Advanced Storefront Filters**: Multi-criteria catalog filtering supporting price range bounds (min & max price), minimum customer star ratings (4.5★+, 4.0★+, 3.5★+, 3.0★+), and stock availability toggle ("In Stock Only"), accompanied by responsive filter chips, individual chip removal, and instant reset controls seamlessly combined with search and category tabs.
 - **Interactive Verified Reviews & Rating System**: Authenticated customers who have purchased a product can submit 1–5 star ratings and reviews (`POST /api/products/:id/reviews`). Enforces verified-purchaser access control, prevents duplicate reviews, and dynamically recalculates catalog average ratings and review counts.
-- **Enforced Authentication & Access Control**:
-  - **Guests**: Freely browse catalog, search, filter, sort, and inspect product details.
-  - **Protected Actions**: Adding to cart, viewing cart, toggling wishlist, checking out, placing orders, making payments, and accessing order history strictly require authentication.
-  - **Contextual Auth Modal & Action Resumption**: Clicking "Add to Cart" or "Checkout" as a guest opens a sign-in modal explaining the requirement. Upon signing in, the pending action is automatically resumed and executed without losing context.
+- **Authentication-First Access Control**:
+  - **Welcome & Auth Entry**: Unauthenticated visitors are presented with a branded entrance screen offering Sign In, Create Account, Google login, and Phone OTP verification. Anonymous guest browsing is completely eliminated.
+  - **Full Storefront Access for Authenticated Users**: Catalog browsing, search, category/price/rating filters, product quick-view modals, cart, wishlist, checkout, address book, reviews, and package tracking are exclusively available once authenticated.
 - **Persistent Shopping Cart & Wishlist**: Real-time quantity adjustments, stock availability enforcement, item removal, and subtotal calculation.
 - **Coupon Discount System**: Validates promo codes (e.g., `SAVE10` for 10% off, `SAVE20` for 20% off, `SHOPEXPRESS` for 15% off) with dynamic discount recalculation.
 - **Simulated Checkout & Payment Flow**: Multi-method checkout supporting Credit/Debit Cards, UPI apps (Google Pay, PhonePe, Paytm, BHIM), and Cash on Delivery (COD) with shipping address auto-save.
@@ -140,16 +139,11 @@ The application includes 60 fully populated products with high-quality imagery a
 
 ## 🔐 Authentication & Access Control
 
-### Application Entry Flow & Landing Screen
-- **Initial Welcome Screen**: When an unauthenticated user opens the application, the full shopping interface (catalog, search bar, store controls, cart, wishlist, orders) is hidden. Instead, a dedicated Welcome / Authentication Landing Screen greets the visitor with Shop Express branding, value propositions, and authentication portals.
-- **Continue as Guest (Browse Catalog)**: Visitors can click the prominent "Continue as Guest" button on the hero banner or authentication card to enter Guest Browsing Mode. This reveals the full catalog and shopping controls, while maintaining all strict access-control protections on cart, wishlist, orders, and checkout.
-- **Authenticated Experience**: Upon signing in or registering, users enter the full shopping storefront. The navigation header displays the user's name, profile avatar initial, and a one-click Sign Out button.
-- **Logout Behavior**: Signing out completely resets the active session, removes guest mode flags, and immediately returns to the Welcome / Authentication Landing Screen.
-
-### Guest Experience
-- Unauthenticated visitors in Guest Mode can browse all 60 catalog items, use live search, filter by department, sort, and open the product quick-view modal.
-- Protected actions (Adding to cart, viewing cart, toggling wishlist, checking out, placing orders, making payments, and viewing order history) are gated.
-- Triggering any protected action displays a sign-in modal with a contextual banner explaining why authentication is needed.
+### Application Entry Flow & Welcome Screen
+- **Initial Welcome Screen**: When an unauthenticated user opens the application, the full shopping interface (catalog, search bar, store controls, cart, wishlist, orders) is hidden. Instead, a dedicated Welcome / Authentication Screen greets the visitor with Shop Express branding, core value highlights, and authentication portals.
+- **Authentication-First Architecture**: Anonymous guest browsing is removed. Visitors must sign in or register to enter the shopping storefront.
+- **Authenticated Experience**: Upon signing in or registering, users enter the full shopping storefront. The navigation header displays the user's name, profile avatar initial, store controls (Cart, Wishlist, Orders), and a one-click Sign Out button.
+- **Logout Behavior**: Signing out completely resets the active session, clears credentials from memory/storage, and immediately returns to the Welcome / Authentication Screen.
 
 ### Supported Authentication Modes & Personalization
 1. **Email & Password**: Standard sign-up and sign-in with password hashing (`bcryptjs`) and confirm password validation.
@@ -158,9 +152,6 @@ The application includes 60 fully populated products with high-quality imagery a
 4. **One-Click Demo Account**: Quick-fill button for evaluation (`alex@example.com` / `password123`).
 5. **Google Sign-In Simulation**: Modal with profile selection and custom Google account input (`POST /api/auth/google`).
 6. **Phone OTP Verification**: 2-step verification code flow (`POST /api/auth/phone-login`, Demo OTP: `123456`).
-
-### Action Restoration
-When an unauthenticated guest clicks **Add to Cart** on a product card or modal, the selected product ID, quantity, and variant are preserved in memory. Immediately upon successful sign-in, the system completes the pending action, adds the item to the cart, and displays a confirmation toast.
 
 ---
 

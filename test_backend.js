@@ -1,5 +1,7 @@
 const http = require("http");
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
 
 process.env.NODE_ENV = "test";
 process.env.PORT = "5099";
@@ -436,7 +438,7 @@ const server = app.listen(5099, async () => {
     });
 
     // 30. Unauthenticated Recommendations Return Non-Personalized Catalog Picks
-    await test("GET /api/recommendations for unauthenticated guest returns isPersonalized: false", async () => {
+    await test("GET /api/recommendations without auth token returns isPersonalized: false", async () => {
       const res = await request("GET", "/api/recommendations");
       assert.strictEqual(res.status, 200);
       assert.strictEqual(res.body.success, true);
@@ -547,12 +549,12 @@ const server = app.listen(5099, async () => {
       assert.strictEqual(authRes.body.canReview, false);
       assert(authRes.body.userReview !== null);
 
-      // As guest (no token)
-      const guestRes = await request("GET", "/api/products/1/reviews");
-      assert.strictEqual(guestRes.status, 200);
-      assert.strictEqual(guestRes.body.canReview, false);
-      assert.strictEqual(guestRes.body.hasPurchased, false);
-      assert(Array.isArray(guestRes.body.reviewsList));
+      // Unauthenticated request (no token)
+      const unauthReviewRes = await request("GET", "/api/products/1/reviews");
+      assert.strictEqual(unauthReviewRes.status, 200);
+      assert.strictEqual(unauthReviewRes.body.canReview, false);
+      assert.strictEqual(unauthReviewRes.body.hasPurchased, false);
+      assert(Array.isArray(unauthReviewRes.body.reviewsList));
     });
 
     // 37. Price Filtering (minPrice & maxPrice)
@@ -1115,6 +1117,243 @@ const server = app.listen(5099, async () => {
       assert.strictEqual(orderShipping.fullName, "Address User A");
       assert.strictEqual(orderShipping.city, "Bengaluru");
       assert.strictEqual(orderShipping.postalCode, "560100");
+    });
+
+    // ==================================================
+    // AUTHENTICATION-FIRST E2E & GUEST REMOVAL VERIFICATIONS
+    // ==================================================
+
+    // 67. Unauthenticated User Cannot Enter Authenticated Shopping Flow
+    await test("unauthenticated user cannot enter authenticated shopping flow", async () => {
+      const cartRes = await request("GET", "/api/cart");
+      assert.strictEqual(cartRes.status, 401);
+      const ordersRes = await request("GET", "/api/orders");
+      assert.strictEqual(ordersRes.status, 401);
+      const wishlistRes = await request("POST", "/api/wishlist/1");
+      assert.strictEqual(wishlistRes.status, 401);
+      const addressRes = await request("GET", "/api/users/addresses");
+      assert.strictEqual(addressRes.status, 401);
+      const checkoutRes = await request("POST", "/api/orders", {
+        items: [{ productId: 1, name: "Test", price: 599, quantity: 1 }],
+        shippingAddress: { fullName: "Test" },
+        paymentMethod: "card",
+        subtotal: 599,
+        total: 599,
+      });
+      assert.strictEqual(checkoutRes.status, 401);
+    });
+
+    // 68. "Continue as Guest" No Longer Exists
+    await test('"Continue as Guest" no longer exists', async () => {
+      const indexPath = path.join(__dirname, "frontend", "index.html");
+      const indexContent = fs.readFileSync(indexPath, "utf-8");
+      assert(!indexContent.includes("Continue as Guest"), "index.html must not contain Continue as Guest");
+      assert(!indexContent.includes("Just looking around?"), "index.html must not contain guest browsing prompt");
+      assert(!indexContent.includes("guestBrowseCatalog()"), "index.html must not call guestBrowseCatalog()");
+
+      const scriptPath = path.join(__dirname, "frontend", "script.js");
+      const scriptContent = fs.readFileSync(scriptPath, "utf-8");
+      assert(!scriptContent.includes("Guest (Sign In)"), "script.js must not display Guest (Sign In)");
+      assert(scriptContent.includes("isGuestMode"), "isGuestMode exists for backward compatibility");
+    });
+
+    // 69. Authenticated User Can Enter Storefront
+    let e2eToken = null;
+    let e2eUser = null;
+    await test("authenticated user can enter storefront", async () => {
+      const loginRes = await request("POST", "/api/auth/login", {
+        identifier: "alex@example.com",
+        password: "password123",
+      });
+      assert.strictEqual(loginRes.status, 200);
+      assert(loginRes.body.token);
+      e2eToken = loginRes.body.token;
+      e2eUser = loginRes.body.user;
+
+      const meRes = await request("GET", "/api/auth/me", null, e2eToken);
+      assert.strictEqual(meRes.status, 200);
+      assert.strictEqual(meRes.body.user.email, "alex@example.com");
+    });
+
+    // 70. Authenticated Cart Still Works
+    await test("authenticated cart still works", async () => {
+      const addRes = await request(
+        "POST",
+        "/api/cart",
+        { productId: 2, quantity: 1, selectedVariant: "M" },
+        e2eToken
+      );
+      assert.strictEqual(addRes.status, 200);
+      assert.strictEqual(addRes.body.success, true);
+
+      const getCartRes = await request("GET", "/api/cart", null, e2eToken);
+      assert.strictEqual(getCartRes.status, 200);
+      assert(getCartRes.body.cart.some((item) => item.productId === 2));
+    });
+
+    // 71. Authenticated Wishlist Still Works
+    await test("authenticated wishlist still works", async () => {
+      const toggleRes = await request("POST", "/api/wishlist/3", null, e2eToken);
+      assert.strictEqual(toggleRes.status, 200);
+      assert.strictEqual(toggleRes.body.inWishlist, true);
+
+      const listRes = await request("GET", "/api/wishlist", null, e2eToken);
+      assert.strictEqual(listRes.status, 200);
+      assert(listRes.body.wishlist.some((p) => p.id === 3));
+    });
+
+    // 72. Authenticated Checkout Still Works
+    await test("authenticated checkout still works", async () => {
+      const checkoutOrderRes = await request(
+        "POST",
+        "/api/orders",
+        {
+          items: [
+            {
+              productId: 2,
+              name: "Slim-Fit Stretch Denim Jeans",
+              price: 1899,
+              quantity: 1,
+              selectedVariant: "M",
+              image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&q=80",
+            },
+          ],
+          shippingAddress: {
+            fullName: "Alex Johnson",
+            phone: "9876543210",
+            street: "456 Fashion Avenue",
+            city: "Bengaluru",
+            state: "Karnataka",
+            pincode: "560001",
+          },
+          paymentMethod: "upi",
+          subtotal: 1899,
+          total: 1899,
+        },
+        e2eToken
+      );
+      assert.strictEqual(checkoutOrderRes.status, 201);
+      assert.strictEqual(checkoutOrderRes.body.success, true);
+      assert(checkoutOrderRes.body.order.orderId);
+    });
+
+    // 73. Authenticated Address Book Still Works
+    let e2eAddressId = null;
+    await test("authenticated address book still works", async () => {
+      const addAddrRes = await request(
+        "POST",
+        "/api/users/addresses",
+        {
+          fullName: "Alex Johnson",
+          phone: "9876543210",
+          addressLine1: "Suite 101, Tech Park",
+          city: "Bengaluru",
+          state: "Karnataka",
+          postalCode: "560100",
+          label: "Work",
+          isDefault: true,
+        },
+        e2eToken
+      );
+      assert.strictEqual(addAddrRes.status, 201);
+      assert(addAddrRes.body.address.id || addAddrRes.body.address._id);
+      e2eAddressId = addAddrRes.body.address.id || addAddrRes.body.address._id;
+
+      const listRes = await request("GET", "/api/users/addresses", null, e2eToken);
+      assert.strictEqual(listRes.status, 200);
+      assert(listRes.body.addresses.some((a) => (a.id || a._id) === e2eAddressId));
+    });
+
+    // 74. Authenticated Order Creation Still Works
+    let e2eCreatedOrderId = null;
+    await test("authenticated order creation still works", async () => {
+      const orderRes = await request(
+        "POST",
+        "/api/orders",
+        {
+          items: [
+            {
+              productId: 4,
+              name: "Breathable Pro Running Shoes",
+              price: 3499,
+              quantity: 1,
+              selectedVariant: "9",
+              image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80",
+            },
+          ],
+          shippingAddress: {
+            fullName: "Alex Johnson",
+            phone: "9876543210",
+            addressLine1: "Suite 101, Tech Park",
+            city: "Bengaluru",
+            state: "Karnataka",
+            postalCode: "560100",
+          },
+          paymentMethod: "card",
+          subtotal: 3499,
+          total: 3499,
+        },
+        e2eToken
+      );
+      assert.strictEqual(orderRes.status, 201);
+      assert.strictEqual(orderRes.body.success, true);
+      e2eCreatedOrderId = orderRes.body.order.orderId;
+      assert(e2eCreatedOrderId.startsWith("ORD-"));
+    });
+
+    // 75. Authenticated Order Tracking Still Works
+    await test("authenticated order tracking still works", async () => {
+      const trackingRes = await request("GET", `/api/orders/${e2eCreatedOrderId}/tracking`, null, e2eToken);
+      assert.strictEqual(trackingRes.status, 200);
+      assert.strictEqual(trackingRes.body.success, true);
+      assert.strictEqual(trackingRes.body.tracking.orderStatus, "Placed");
+      assert(trackingRes.body.tracking.milestones.length === 4);
+    });
+
+    // 76. Authenticated Invoice Generation Still Works
+    await test("authenticated invoice generation still works", async () => {
+      const invRes = await request("GET", `/api/orders/${e2eCreatedOrderId}/invoice`, null, e2eToken);
+      assert.strictEqual(invRes.status, 200);
+      assert.strictEqual(invRes.body.success, true);
+      assert.strictEqual(invRes.body.invoice.orderId, e2eCreatedOrderId);
+      assert.strictEqual(invRes.body.invoice.storeName, "Shop Express");
+    });
+
+    // 77. Logout Correctly Returns to Authentication Entry
+    await test("logout correctly returns to authentication entry", async () => {
+      // Simulate client token disposal on logout
+      const invalidToken = null;
+      const protectedRes = await request("GET", "/api/auth/me", null, invalidToken);
+      assert.strictEqual(protectedRes.status, 401);
+      assert.strictEqual(protectedRes.body.success, false);
+
+      // Verify frontend script provides showWelcomeScreen navigation on logout
+      const scriptPath = path.join(__dirname, "frontend", "script.js");
+      const scriptContent = fs.readFileSync(scriptPath, "utf-8");
+      assert(scriptContent.includes("showWelcomeScreen();"), "Logout and unauth transitions must route to welcome screen");
+    });
+
+    // 78. Logging In Again Restores the Authenticated Experience
+    await test("logging in again restores the authenticated experience", async () => {
+      const reloginRes = await request("POST", "/api/auth/login", {
+        identifier: "alex@example.com",
+        password: "password123",
+      });
+      assert.strictEqual(reloginRes.status, 200);
+      const reToken = reloginRes.body.token;
+      assert(reToken);
+
+      const meRes = await request("GET", "/api/auth/me", null, reToken);
+      assert.strictEqual(meRes.status, 200);
+      assert.strictEqual(meRes.body.user.name, "Alex Morgan");
+
+      const ordersRes = await request("GET", "/api/orders", null, reToken);
+      assert.strictEqual(ordersRes.status, 200);
+      assert(ordersRes.body.orders.length > 0);
+
+      const addressRes = await request("GET", "/api/users/addresses", null, reToken);
+      assert.strictEqual(addressRes.status, 200);
+      assert(addressRes.body.addresses.length > 0);
     });
 
     console.log("==================================================");

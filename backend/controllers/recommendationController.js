@@ -1,10 +1,10 @@
-﻿const Product = require("../models/Product");
+const Product = require("../models/Product");
 const User = require("../models/User");
 const { isConnected } = require("../config/db");
 const memoryStore = require("../services/storageService");
 const { getPersonalizedRecommendations } = require("../services/recommendationService");
 
-// @desc   Get personalized recommendations for user / guest
+// @desc   Get personalized recommendations for authenticated user (or catalog fallback)
 // @route  GET /api/recommendations
 // @access Public (with optional auth)
 const getRecommendations = async (req, res, next) => {

@@ -4,7 +4,7 @@
 /**
  * Computes personalized product recommendations for a user.
  * @param {Object} params
- * @param {Object|null} params.user - User document or null for guest
+ * @param {Object|null} params.user - User document or null for general catalog picks
  * @param {Array} params.products - Array of available products
  * @param {number} [params.limit=8] - Max recommendations to return
  * @returns {Array} List of recommended products with scoring and explainable reasons
