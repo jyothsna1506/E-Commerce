@@ -346,14 +346,22 @@
       .welcome-grid {
         grid-template-columns: 1fr !important;
       }
+      #header-top-row {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
       .header-controls {
+        gap: 6px !important;
+        flex-wrap: wrap;
+      }
+      #header-store-controls {
         gap: 6px !important;
       }
       .header-btn-label {
         display: none;
       }
       .header-btn {
-        padding: 8px 12px !important;
+        padding: 8px 10px !important;
       }
       .filter-controls-group {
         gap: 12px !important;
@@ -361,6 +369,36 @@
       #storefront-filter-bar > div:first-child {
         flex-direction: column;
         align-items: flex-start !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #main-header > div {
+        padding: 0 12px !important;
+      }
+      #site-name {
+        font-size: 20px !important;
+      }
+      #tagline {
+        display: none !important;
+      }
+      .header-controls {
+        gap: 4px !important;
+      }
+      #header-store-controls {
+        gap: 4px !important;
+      }
+      .header-btn {
+        padding: 6px 8px !important;
+        font-size: 13px !important;
+      }
+      #toast-container {
+        right: 12px !important;
+        left: 12px !important;
+        max-width: calc(100% - 24px) !important;
+      }
+      .modal-box {
+        padding: 20px 16px !important;
       }
     }
 
